@@ -3,71 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center Venezuela Llaneras</title>
+    <title>FM Center Venezuela</title>
     <style>
-        body { background: #0a0a0a; color: white; font-family: sans-serif; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .card { background: #1a1a1a; width: 90%; max-width: 400px; padding: 30px; border-radius: 20px; border-top: 5px solid #fecb00; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .disco { font-size: 80px; margin: 20px 0; animation: rotate 4s linear infinite; display: none; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #titulo { font-size: 1.2rem; margin: 15px 0; color: #fecb00; min-height: 50px; }
-        .btn { background: #003da5; color: white; border: none; padding: 15px; width: 100%; border-radius: 50px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; }
-        video { width: 100%; border-radius: 10px; display: none; }
+        body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #1a1a1a; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #fecb00; width: 80%; max-width: 400px; }
+        h1 { margin: 0; font-size: 24px; color: #fff; }
+        h2 { margin: 10px 0; font-size: 18px; color: #fecb00; }
+        .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        #status { margin-top: 20px; color: #fff; font-style: italic; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <div style="color:#aaa; font-size: 12px; letter-spacing: 2px;">FM CENTER VENEZUELA</div>
-    <h2 style="margin: 5px 0;">LLANERAS</h2>
+<div class="box">
+    <h1>FM CENTER</h1>
+    <h2>VENEZUELA LLANERA</h2>
+    <div id="status">Presiona abajo para escuchar</div>
     
-    <div id="visual-audio" class="disco">📻</div>
-    <video id="vPlayer" controls></video>
+    <button class="boton" onclick="reproducir()">▶ INICIAR RADIO</button>
     
-    <div id="titulo">Presiona el botón para iniciar la siembra</div>
-    
-    <button class="btn" id="mainBtn" onclick="iniciarOProximo()">INICIAR RADIO / SIGUIENTE</button>
-    
-    <audio id="aPlayer" onended="iniciarOProximo()"></audio>
+    <audio id="player" src="https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3"></audio>
 </div>
 
 <script>
-    // LISTA DE CANCIONES (AQUÍ AGREGAS TUS LINKS)
-    const biblioteca = [
-        { 
-            tipo: 'audio', 
-            titulo: "Mi Joropo Relancino - Victor Véliz", 
-            url: "https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" 
-        }
-    ];
-
-    const aPlayer = document.getElementById('aPlayer');
-    const vPlayer = document.getElementById('vPlayer');
-    const disco = document.getElementById('visual-audio');
-    const titulo = document.getElementById('titulo');
-    const btn = document.getElementById('mainBtn');
-
-    function iniciarOProximo() {
-        const item = biblioteca[Math.floor(Math.random() * biblioteca.length)];
-        titulo.innerText = "Sonando: " + item.titulo;
-
-        if (item.tipo === 'audio') {
-            vPlayer.style.display = 'none';
-            vPlayer.pause();
-            disco.style.display = 'block';
-            
-            aPlayer.src = item.url;
-            aPlayer.play().catch(err => {
-                titulo.innerText = "Error: Toca de nuevo el botón";
-            });
-        } else {
-            disco.style.display = 'none';
-            aPlayer.pause();
-            vPlayer.style.display = 'block';
-            
-            vPlayer.src = item.url;
-            vPlayer.play();
-        }
+    function reproducir() {
+        var audio = document.getElementById('player');
+        var status = document.getElementById('status');
+        
+        status.innerText = "Sintonizando arpa llanera...";
+        
+        audio.play().then(() => {
+            status.innerText = "Sonando: Víctor Véliz";
+        }).catch(err => {
+            status.innerText = "Error: Toca de nuevo";
+            console.log(err);
+        });
     }
 </script>
+
 </body>
 </html>
