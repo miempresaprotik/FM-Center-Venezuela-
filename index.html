@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Venezuela Llaneras</title>
+    <title>FM Center - Prioridad GitHub</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
@@ -12,56 +12,56 @@
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 45px; line-height: 1.4; }
         video { width: 100%; display: none; margin-top: 15px; border-radius: 10px; border: 1px solid #333; }
+        .badge { font-size: 10px; background: #333; padding: 2px 8px; border-radius: 5px; color: #aaa; }
     </style>
 </head>
 <body>
 
 <div class="box">
     <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
-    <h2 style="margin:5px 0; font-size: 18px;">VENEZUELA LLANERAS</h2>
+    <h2 style="margin:5px 0; font-size: 18px;">EMISIÓN LIDER</h2>
     
     <video id="vPlayer" controls></video>
-    <div id="status">Sintonizando...</div>
+    <div id="status">Iniciando servidor...</div>
     
-    <button class="boton" onclick="reproducirCualquiera()">▶ PLAY / SIGUIENTE</button>
+    <button class="boton" onclick="reproducirConPrioridad()">▶ REPRODUCIR</button>
 
     <div class="vol-container">
-        <label style="color:#fecb00; font-size: 11px; letter-spacing: 1px;">CONTROL DE VOLUMEN</label><br>
+        <label style="color:#fecb00; font-size: 11px; letter-spacing: 1px;">VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
     </div>
 
     <audio id="aPlayer"></audio>
+    <div id="origen-tag" class="badge" style="margin-top:15px; display:none;"></div>
 </div>
 
 <script>
-    // 1. RESPALDO DE ARCHIVE.ORG (Enlace directo sin esperas)
-    const listaArchive = [
-        { 
-            nombre: "Víctor Véliz - Mi Joropo Relancino", 
-            url: "https://ia801509.us.archive.org/12/items/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" 
-        }
-    ];
-
-    // 2. TU CONFIGURACIÓN (Ajustada a tu carpeta "Musica")
+    // CONFIGURACIÓN
     const usuario = "miempresaprotik"; 
     const repo = "FM-Center-Venezuela";
-    const carpeta = "Musica"; // Fíjate que ahora tiene la "M" mayúscula
+    const carpeta = "Musica"; //
+
+    // BIBLIOTECA DE RESPALDO (Archive.org)
+    const listaArchive = [
+        { nombre: "Víctor Véliz - Relancino", url: "https://ia801509.us.archive.org/12/items/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" }
+    ];
 
     let listaGithub = [];
     const aPlayer = document.getElementById('aPlayer');
     const vPlayer = document.getElementById('vPlayer');
     const status = document.getElementById('status');
+    const tag = document.getElementById('origen-tag');
 
-    async function cargarBibliotecaGithub() {
+    async function cargarGithub() {
         try {
             const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
             const files = await res.json();
             if(Array.isArray(files)) {
                 listaGithub = files.filter(f => f.name.toLowerCase().endsWith('.mp3') || f.name.toLowerCase().endsWith('.mp4'));
-                status.innerText = "Sistemas listos.\nArchivos en carpeta: " + listaGithub.length;
+                status.innerText = "Conectado a GitHub.\nArchivos detectados: " + listaGithub.length;
             }
         } catch (e) {
-            status.innerText = "Sistemas listos.\n(Usando respaldo de Archive)";
+            status.innerText = "GitHub no disponible.\nUsando respaldo.";
         }
     }
 
@@ -70,16 +70,23 @@
         vPlayer.volume = valor;
     }
 
-    function reproducirCualquiera() {
-        const todas = [...listaArchive.map(i => ({...i, origen: 'Archive'})), 
-                       ...listaGithub.map(i => ({nombre: i.name, url: i.download_url, origen: 'Carpeta Musica'}))];
+    function reproducirConPrioridad() {
+        let track;
+        
+        // LÓGICA DE PRIORIDAD: Si hay algo en GitHub, úsalo. Si no, usa Archive.
+        if (listaGithub.length > 0) {
+            const elegido = listaGithub[Math.floor(Math.random() * listaGithub.length)];
+            track = { nombre: elegido.name, url: elegido.download_url, origen: 'GITHUB (PRIORIDAD)' };
+        } else {
+            const elegido = listaArchive[Math.floor(Math.random() * listaArchive.length)];
+            track = { ...elegido, origen: 'ARCHIVE.ORG (RESPALDO)' };
+        }
 
-        if (todas.length === 0) return;
+        status.innerText = "Sonando:\n" + track.nombre;
+        tag.innerText = track.origen;
+        tag.style.display = "inline-block";
 
-        const track = todas[Math.floor(Math.random() * todas.length)];
-        status.innerText = "Escuchando desde " + track.origen + ":\n" + track.nombre;
-
-        // Limpiar reproductores
+        // Reset de reproductores
         aPlayer.pause();
         vPlayer.pause();
         vPlayer.style.display = "none";
@@ -87,16 +94,16 @@
         if (track.url.toLowerCase().endsWith('.mp4')) {
             vPlayer.style.display = "block";
             vPlayer.src = track.url;
-            vPlayer.play().catch(() => status.innerText = "Toca Play de nuevo");
-            vPlayer.onended = reproducirCualquiera;
+            vPlayer.play();
+            vPlayer.onended = reproducirConPrioridad;
         } else {
             aPlayer.src = track.url;
-            aPlayer.play().catch(() => status.innerText = "Toca Play de nuevo");
-            aPlayer.onended = reproducirCualquiera;
+            aPlayer.play();
+            aPlayer.onended = reproducirConPrioridad;
         }
     }
 
-    window.onload = cargarBibliotecaGithub;
+    window.onload = cargarGithub;
 </script>
 </body>
 </html>
