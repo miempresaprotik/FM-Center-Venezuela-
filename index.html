@@ -5,38 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FM Center Venezuela</title>
     <style>
-        body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: #1a1a1a; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #fecb00; width: 80%; max-width: 400px; }
-        h1 { margin: 0; font-size: 24px; color: #fff; }
-        h2 { margin: 10px 0; font-size: 18px; color: #fecb00; }
-        .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-        #status { margin-top: 20px; color: #fff; font-style: italic; font-size: 14px; }
+        body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
+        .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 350px; }
+        .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        #status { margin-top: 20px; color: #fff; font-size: 14px; min-height: 20px; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h1>FM CENTER</h1>
-    <h2>VENEZUELA LLANERA</h2>
-    <div id="status">Presiona abajo para escuchar</div>
+    <h1 style="color:white; margin:0;">FM CENTER</h1>
+    <h2 style="margin:5px 0;">VENEZUELA LLANERA</h2>
+    <div id="status">Presiona para escuchar</div>
     
     <button class="boton" onclick="reproducir()">▶ INICIAR RADIO</button>
     
-    <audio id="player" src="https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3"></audio>
+    <audio id="player">
+        <source src="https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" type="audio/mpeg">
+    </audio>
 </div>
 
 <script>
     function reproducir() {
         var audio = document.getElementById('player');
         var status = document.getElementById('status');
-        
-        status.innerText = "Sintonizando arpa llanera...";
+        status.innerText = "Sintonizando...";
         
         audio.play().then(() => {
             status.innerText = "Sonando: Víctor Véliz";
         }).catch(err => {
-            status.innerText = "Error: Toca de nuevo";
-            console.log(err);
+            status.innerText = "Error al cargar. Toca de nuevo.";
+            console.error(err);
         });
     }
 </script>
