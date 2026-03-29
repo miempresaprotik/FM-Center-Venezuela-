@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Sistema Híbrido</title>
+    <title>FM Center - Venezuela Llanera</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
@@ -17,16 +17,16 @@
 <body>
 
 <div class="box">
-    <h1 style="color:white; margin:0;">FM CENTER</h1>
-    <h2 style="margin:5px 0;">CONTROL DE EMISIÓN</h2>
+    <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
+    <h2 style="margin:5px 0; font-size: 18px;">VENEZUELA LLANERA</h2>
     
     <video id="vPlayer" controls></video>
-    <div id="status">Cargando sistemas...</div>
+    <div id="status">Sintonizando...</div>
     
     <button class="boton" onclick="reproducirCualquiera()">▶ PLAY / SIGUIENTE</button>
 
     <div class="vol-container">
-        <label style="color:#fecb00; font-size: 12px;">VOLUMEN</label><br>
+        <label style="color:#fecb00; font-size: 11px; letter-spacing: 1px;">CONTROL DE VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
     </div>
 
@@ -34,31 +34,34 @@
 </div>
 
 <script>
-    // 1. ENLACES FIJOS DE ARCHIVE.ORG (Puedes añadir más aquí)
+    // 1. RESPALDO DE ARCHIVE.ORG (Enlace directo sin esperas)
     const listaArchive = [
-        { nombre: "Víctor Véliz - Relancino", url: "https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" }
+        { 
+            nombre: "Víctor Véliz - Mi Joropo Relancino", 
+            url: "https://ia801509.us.archive.org/12/items/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" 
+        }
     ];
 
-    // 2. CONFIGURACIÓN DE GITHUB
+    // 2. TU CONFIGURACIÓN (Ajustada a tu carpeta "Musica")
     const usuario = "miempresaprotik"; 
     const repo = "FM-Center-Venezuela";
-    const carpeta = "musica";
+    const carpeta = "Musica"; // Fíjate que ahora tiene la "M" mayúscula
 
     let listaGithub = [];
     const aPlayer = document.getElementById('aPlayer');
     const vPlayer = document.getElementById('vPlayer');
     const status = document.getElementById('status');
 
-    async function cargarGithub() {
+    async function cargarBibliotecaGithub() {
         try {
             const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
             const files = await res.json();
             if(Array.isArray(files)) {
-                listaGithub = files.filter(f => f.name.endsWith('.mp3') || f.name.endsWith('.mp4'));
+                listaGithub = files.filter(f => f.name.toLowerCase().endsWith('.mp3') || f.name.toLowerCase().endsWith('.mp4'));
+                status.innerText = "Sistemas listos.\nArchivos en carpeta: " + listaGithub.length;
             }
-            status.innerText = "Sistemas listos.\nArchivos en carpeta: " + listaGithub.length;
         } catch (e) {
-            status.innerText = "Usando biblioteca de respaldo (Archive.org)";
+            status.innerText = "Sistemas listos.\n(Usando respaldo de Archive)";
         }
     }
 
@@ -69,29 +72,31 @@
 
     function reproducirCualquiera() {
         const todas = [...listaArchive.map(i => ({...i, origen: 'Archive'})), 
-                       ...listaGithub.map(i => ({nombre: i.name, url: i.download_url, origen: 'GitHub'}))];
+                       ...listaGithub.map(i => ({nombre: i.name, url: i.download_url, origen: 'Carpeta Musica'}))];
 
         if (todas.length === 0) return;
 
         const track = todas[Math.floor(Math.random() * todas.length)];
-        status.innerText = "Sintonizando (" + track.origen + "):\n" + track.nombre;
+        status.innerText = "Escuchando desde " + track.origen + ":\n" + track.nombre;
 
-        if (track.url.endsWith('.mp4')) {
-            aPlayer.pause();
+        // Limpiar reproductores
+        aPlayer.pause();
+        vPlayer.pause();
+        vPlayer.style.display = "none";
+
+        if (track.url.toLowerCase().endsWith('.mp4')) {
             vPlayer.style.display = "block";
             vPlayer.src = track.url;
-            vPlayer.play();
+            vPlayer.play().catch(() => status.innerText = "Toca Play de nuevo");
             vPlayer.onended = reproducirCualquiera;
         } else {
-            vPlayer.style.display = "none";
-            vPlayer.pause();
             aPlayer.src = track.url;
-            aPlayer.play();
+            aPlayer.play().catch(() => status.innerText = "Toca Play de nuevo");
             aPlayer.onended = reproducirCualquiera;
         }
     }
 
-    window.onload = cargarGithub;
+    window.onload = cargarBibliotecaGithub;
 </script>
 </body>
 </html>
