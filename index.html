@@ -3,42 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center Venezuela</title>
+    <title>FM Center - Sistema Híbrido</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-        .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 350px; }
-        .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-        #status { margin-top: 20px; color: #fff; font-size: 14px; min-height: 20px; }
+        .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
+        .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        .vol-container { margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
+        #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 45px; line-height: 1.4; }
+        video { width: 100%; display: none; margin-top: 15px; border-radius: 10px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
 <div class="box">
     <h1 style="color:white; margin:0;">FM CENTER</h1>
-    <h2 style="margin:5px 0;">VENEZUELA LLANERA</h2>
-    <div id="status">Presiona para escuchar</div>
+    <h2 style="margin:5px 0;">CONTROL DE EMISIÓN</h2>
     
-    <button class="boton" onclick="reproducir()">▶ INICIAR RADIO</button>
+    <video id="vPlayer" controls></video>
+    <div id="status">Cargando sistemas...</div>
     
-    <audio id="player">
-        <source src="https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" type="audio/mpeg">
-    </audio>
+    <button class="boton" onclick="reproducirCualquiera()">▶ PLAY / SIGUIENTE</button>
+
+    <div class="vol-container">
+        <label style="color:#fecb00; font-size: 12px;">VOLUMEN</label><br>
+        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
+    </div>
+
+    <audio id="aPlayer"></audio>
 </div>
 
 <script>
-    function reproducir() {
-        var audio = document.getElementById('player');
-        var status = document.getElementById('status');
-        status.innerText = "Sintonizando...";
-        
-        audio.play().then(() => {
-            status.innerText = "Sonando: Víctor Véliz";
-        }).catch(err => {
-            status.innerText = "Error al cargar. Toca de nuevo.";
-            console.error(err);
-        });
-    }
-</script>
+    // 1. ENLACES FIJOS DE ARCHIVE.ORG (Puedes añadir más aquí)
+    const listaArchive = [
+        { nombre: "Víctor Véliz - Relancino", url: "https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp3" }
+    ];
 
+    // 2. CONFIGURACIÓN DE GITHUB
+    const usuario = "miempresaprotik"; 
+    const repo = "FM-Center-Venezuela";
+    const carpeta = "musica";
+
+    let listaGithub = [];
+    const aPlayer = document.getElementById('aPlayer');
+    const vPlayer = document.getElementById('vPlayer');
+    const status = document.getElementById('status');
+
+    async function cargarGithub() {
+        try {
+            const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
+            const files = await res.json();
+            if(Array.isArray(files)) {
+                listaGithub = files.filter(f => f.name.endsWith('.mp3') || f.name.endsWith('.mp4'));
+            }
+            status.innerText = "Sistemas listos.\nArchivos en carpeta: " + listaGithub.length;
+        } catch (e) {
+            status.innerText = "Usando biblioteca de respaldo (Archive.org)";
+        }
+    }
+
+    function ajustarVolumen(valor) {
+        aPlayer.volume = valor;
+        vPlayer.volume = valor;
+    }
+
+    function reproducirCualquiera() {
+        const todas = [...listaArchive.map(i => ({...i, origen: 'Archive'})), 
+                       ...listaGithub.map(i => ({nombre: i.name, url: i.download_url, origen: 'GitHub'}))];
+
+        if (todas.length === 0) return;
+
+        const track = todas[Math.floor(Math.random() * todas.length)];
+        status.innerText = "Sintonizando (" + track.origen + "):\n" + track.nombre;
+
+        if (track.url.endsWith('.mp4')) {
+            aPlayer.pause();
+            vPlayer.style.display = "block";
+            vPlayer.src = track.url;
+            vPlayer.play();
+            vPlayer.onended = reproducirCualquiera;
+        } else {
+            vPlayer.style.display = "none";
+            vPlayer.pause();
+            aPlayer.src = track.url;
+            aPlayer.play();
+            aPlayer.onended = reproducirCualquiera;
+        }
+    }
+
+    window.onload = cargarGithub;
+</script>
 </body>
 </html>
