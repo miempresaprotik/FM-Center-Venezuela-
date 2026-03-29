@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio & TV Folklore Venezolano</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: #1e1e1e; width: 90%; max-width: 500px; padding: 20px; border-radius: 15px; text-align: center; border-top: 6px solid #fecb00; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .media-box { background: #000; border-radius: 10px; margin: 15px 0; min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        video, audio { width: 100%; }
+        #audio-icon { font-size: 50px; display: none; }
+        h1 { font-size: 1.5rem; margin-bottom: 5px; color: #fecb00; }
+        #status { font-size: 0.9rem; color: #bbb; margin-bottom: 20px; }
+        .btn { background: #003da5; color: white; border: none; padding: 12px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Folklore en Vivo</h1>
+    <p id="status">Cargando...</p>
+
+    <div class="media-box">
+        <video id="vPlayer" controls style="display:none;"></video>
+        <div id="audio-ui">
+            <div id="audio-icon">🎶</div>
+            <audio id="aPlayer" controls onended="playNext()"></audio>
+        </div>
+    </div>
+
+    <button class="btn" onclick="playNext()">Siguiente Canción / Video</button>
+</div>
+
+<script>
+    // LISTA DE CONTENIDO (Aquí pondrás tus links de Archive.org)
+    const biblioteca = [
+        { tipo: 'video', titulo: "Joropo Relancino - Victor Véliz", url: "https://archive.org/download/mi-joropo-relancino-victor-veliz-mp-3-128-k/Mi%20Joropo%20Relancino%20-%20Victor%20V%C3%A9liz.mp4" },
+        // Agrega más canciones aquí siguiendo el mismo formato
+    ];
+
+    const vPlayer = document.getElementById('vPlayer');
+    const aPlayer = document.getElementById('aPlayer');
+    const status = document.getElementById('status');
+    const aUI = document.getElementById('audio-ui');
+    const aIcon = document.getElementById('audio-icon');
+
+    function playNext() {
+        if (biblioteca.length === 0) {
+            status.innerText = "No hay archivos en la lista";
+            return;
+        }
+
+        const item = biblioteca[Math.floor(Math.random() * biblioteca.length)];
+        status.innerText = "Reproduciendo: " + item.titulo;
+
+        if (item.tipo === 'video') {
+            aPlayer.pause();
+            aUI.style.display = 'none';
+            vPlayer.style.display = 'block';
+            vPlayer.src = item.url;
+            vPlayer.play();
+            vPlayer.onended = playNext;
+        } else {
+            vPlayer.pause();
+            vPlayer.style.display = 'none';
+            aUI.style.display = 'block';
+            aIcon.style.display = 'block';
+            aPlayer.src = item.url;
+            aPlayer.play();
+        }
+    }
+
+    // Iniciar
+    window.onload = playNext;
+</script>
+
+</body>
+</html>
