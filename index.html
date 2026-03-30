@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Emisión Local</title>
+    <title>FM Center - Venezuela Llanera</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
@@ -16,77 +16,68 @@
 <body>
 
 <div class="box">
-    <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
-    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERA</h2>
+    <h1 style="color:white; margin:0;">FM CENTER</h1>
+    <h2 style="margin:5px 0; color:#fecb00;">VENEZUELA LLANERA</h2>
     
-    <div id="status">Conectando a GitHub...</div>
+    <div id="status">Verificando conexión...</div>
     
     <button class="boton" onclick="reproducir()">▶ REPRODUCIR LLANERAS</button>
 
     <div class="vol-container">
-        <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
-        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
+        <label style="font-size: 11px;">VOLUMEN</label><br>
+        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
     </div>
 
     <audio id="player"></audio>
 </div>
 
 <script>
-    const usuario = "miempresaprotik"; 
-    const repo = "FM-Center-Venezuela";
-    const carpeta = "Musica"; 
+    // REVISA ESTOS 3 DATOS - DEBEN SER IDÉNTICOS A TU GITHUB
+    const config = {
+        usuario: "miempresaprotik",
+        repo: "FM-Center-Venezuela",
+        carpeta: "Musica"
+    };
 
     let canciones = [];
     const player = document.getElementById('player');
     const status = document.getElementById('status');
 
     async function cargarBiblioteca() {
-        // Añadimos un número aleatorio al final de la URL para evitar el caché del navegador
-        const urlApi = `https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}?t=${Math.random()}`;
+        // El 'Math.random' es para que no cargue la versión vieja (caché)
+        const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}?nocache=${Math.random()}`;
         
         try {
-            const res = await fetch(urlApi);
+            const res = await fetch(url);
+            
+            if (res.status === 404) {
+                status.innerText = "Error 404: No encuentro la carpeta '" + config.carpeta + "'.\n¿Seguro que se llama así?";
+                return;
+            }
+
             const data = await res.json();
             
             if(Array.isArray(data)) {
-                // Filtramos archivos .mp3, .m4a y .mp4
-                canciones = data.filter(f => 
-                    f.name.toLowerCase().endsWith('.mp3') || 
-                    f.name.toLowerCase().endsWith('.m4a') ||
-                    f.name.toLowerCase().endsWith('.mp4')
-                );
-                status.innerText = "¡Sistemas Listos!\nSe detectaron " + canciones.length + " canciones en la carpeta.";
-            } else {
-                status.innerText = "Error: No se encontró la carpeta 'Musica' o está vacía.";
+                canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
+                status.innerText = "¡Conexión Exitosa!\nTemas encontrados: " + canciones.length;
             }
         } catch (e) {
-            status.innerText = "Error de conexión con GitHub.\nRevisa tu internet o el nombre del repositorio.";
+            status.innerText = "Error de red. Revisa tu señal.";
         }
-    }
-
-    function ajustarVolumen(valor) {
-        player.volume = valor;
     }
 
     function reproducir() {
         if (canciones.length === 0) {
-            status.innerText = "Buscando canciones de nuevo...";
             cargarBiblioteca();
             return;
         }
-
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        status.innerText = "Sonando de GitHub:\n" + track.name;
-        
+        status.innerText = "Sonando:\n" + track.name;
         player.src = track.download_url;
-        player.play().catch(() => {
-            status.innerText = "Error al iniciar reproducción.\nIntenta pulsar el botón de nuevo.";
-        });
-        
+        player.play().catch(() => status.innerText = "Error al reproducir. Toca de nuevo.");
         player.onended = reproducir;
     }
 
-    // Iniciar carga al abrir la web
     window.onload = cargarBiblioteca;
 </script>
 </body>
