@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Emisión Venezuela</title>
+    <title>FM Center - Emisión Local</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
@@ -17,9 +17,9 @@
 
 <div class="box">
     <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
-    <h2 style="margin:5px 0; font-size: 18px;">VENEZUELA LLANERAS</h2>
+    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERA</h2>
     
-    <div id="status">Conectando a la biblioteca...</div>
+    <div id="status">Conectando a GitHub...</div>
     
     <button class="boton" onclick="reproducir()">▶ REPRODUCIR LLANERAS</button>
 
@@ -34,26 +34,33 @@
 <script>
     const usuario = "miempresaprotik"; 
     const repo = "FM-Center-Venezuela";
-    const carpeta = "Musica"; // Ruta limpia ahora
+    const carpeta = "Musica"; 
 
     let canciones = [];
     const player = document.getElementById('player');
     const status = document.getElementById('status');
 
     async function cargarBiblioteca() {
+        // Añadimos un número aleatorio al final de la URL para evitar el caché del navegador
+        const urlApi = `https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}?t=${Math.random()}`;
+        
         try {
-            const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
+            const res = await fetch(urlApi);
             const data = await res.json();
             
             if(Array.isArray(data)) {
-                // Filtramos solo archivos de audio
-                canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3') || f.name.toLowerCase().endsWith('.m4a'));
-                status.innerText = "¡Sistemas Listos!\nSe detectaron " + canciones.length + " canciones.";
+                // Filtramos archivos .mp3, .m4a y .mp4
+                canciones = data.filter(f => 
+                    f.name.toLowerCase().endsWith('.mp3') || 
+                    f.name.toLowerCase().endsWith('.m4a') ||
+                    f.name.toLowerCase().endsWith('.mp4')
+                );
+                status.innerText = "¡Sistemas Listos!\nSe detectaron " + canciones.length + " canciones en la carpeta.";
             } else {
-                status.innerText = "Error: No se encontró la carpeta 'Musica'.";
+                status.innerText = "Error: No se encontró la carpeta 'Musica' o está vacía.";
             }
         } catch (e) {
-            status.innerText = "Error de conexión. Revisa tu internet.";
+            status.innerText = "Error de conexión con GitHub.\nRevisa tu internet o el nombre del repositorio.";
         }
     }
 
@@ -63,21 +70,23 @@
 
     function reproducir() {
         if (canciones.length === 0) {
-            status.innerText = "Buscando canciones...";
+            status.innerText = "Buscando canciones de nuevo...";
             cargarBiblioteca();
             return;
         }
 
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        status.innerText = "Sonando:\n" + track.name;
+        status.innerText = "Sonando de GitHub:\n" + track.name;
         
         player.src = track.download_url;
-        player.play().catch(() => status.innerText = "Toca de nuevo para iniciar");
+        player.play().catch(() => {
+            status.innerText = "Error al iniciar reproducción.\nIntenta pulsar el botón de nuevo.";
+        });
         
-        // Al terminar una, que empiece otra sola
         player.onended = reproducir;
     }
 
+    // Iniciar carga al abrir la web
     window.onload = cargarBiblioteca;
 </script>
 </body>
