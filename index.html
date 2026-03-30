@@ -25,17 +25,19 @@
 
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
-        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
+        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
     </div>
 
     <audio id="player"></audio>
 </div>
 
 <script>
-    // Configuración Directa
-    const usuario = "miempresaprotik"; 
-    const repo = "FM-Center-Venezuela-";
-    const carpeta = "Musica"; 
+    // Configuración con el guion final restaurado
+    const config = {
+        usuario: "miempresaprotik",
+        repo: "FM-Center-Venezuela-", 
+        carpeta: "Musica"
+    };
 
     let canciones = [];
     const player = document.getElementById('player');
@@ -43,24 +45,17 @@
 
     async function cargarBiblioteca() {
         try {
-            const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
+            const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`;
+            const res = await fetch(url);
             const data = await res.json();
             
             if(Array.isArray(data)) {
-                // Filtramos archivos mp3
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                // Ocultamos cualquier mensaje técnico de carga
-                status.innerText = "¡Sistemas Listos!\nPresiona Reproducir.";
-            } else {
-                status.innerText = "Sintonizando..."; // Mantenemos un estado limpio
+                status.innerText = "Sintonización lista.";
             }
         } catch (e) {
-            status.innerText = "Error de conexión.";
+            status.innerText = "Error de sintonía.";
         }
-    }
-
-    function ajustarVolumen(valor) {
-        player.volume = valor;
     }
 
     function reproducirMusica() {
@@ -71,21 +66,15 @@
 
         const track = canciones[Math.floor(Math.random() * canciones.length)];
         
-        // Limpiamos el nombre del archivo para que parezca profesional
-        // Quitamos la extensión .mp3 y los guiones bajos por espacios
-        let nombreLimpio = track.name.replace('.mp3', '').replace(/_/g, ' ');
+        // Limpiamos el nombre para que sea natural
+        let nombreLimpio = track.name.replace('.mp3', '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '');
         
-        // CORRECCIÓN: Usamos solo "Sonando:"
         status.innerText = "Sonando:\n" + nombreLimpio;
-        
         player.src = track.download_url;
-        player.play().catch(() => status.innerText = "Error. Intenta reproducir de nuevo.");
-        
-        // Al terminar una, que empiece otra sola (bucle automático)
+        player.play().catch(() => status.innerText = "Error. Toca de nuevo.");
         player.onended = reproducirMusica;
     }
 
-    // Iniciar carga al abrir la web
     window.onload = cargarBiblioteca;
 </script>
 </body>
