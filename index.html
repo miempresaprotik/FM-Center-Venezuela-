@@ -32,10 +32,10 @@
 </div>
 
 <script>
-    // REVISA ESTOS 3 DATOS - DEBEN SER IDÉNTICOS A TU GITHUB
+    // DATOS CORREGIDOS SEGÚN TU CAPTURA
     const config = {
         usuario: "miempresaprotik",
-        repo: "FM-Center-Venezuela",
+        repo: "FM-Center-Venezuela-", // AQUÍ ESTÁ EL GUION QUE FALTABA
         carpeta: "Musica"
     };
 
@@ -44,25 +44,26 @@
     const status = document.getElementById('status');
 
     async function cargarBiblioteca() {
-        // El 'Math.random' es para que no cargue la versión vieja (caché)
+        // Forzamos la limpieza de caché con Math.random
         const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}?nocache=${Math.random()}`;
         
         try {
             const res = await fetch(url);
             
             if (res.status === 404) {
-                status.innerText = "Error 404: No encuentro la carpeta '" + config.carpeta + "'.\n¿Seguro que se llama así?";
+                status.innerText = "Error: Verifica que el repo se llame '" + config.repo + "' y la carpeta '" + config.carpeta + "'.";
                 return;
             }
 
             const data = await res.json();
             
             if(Array.isArray(data)) {
+                // Filtramos archivos mp3
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "¡Conexión Exitosa!\nTemas encontrados: " + canciones.length;
+                status.innerText = "¡Conexión Exitosa!\nSe encontraron " + canciones.length + " temas llaneros.";
             }
         } catch (e) {
-            status.innerText = "Error de red. Revisa tu señal.";
+            status.innerText = "Error de conexión. Revisa tu señal.";
         }
     }
 
@@ -72,7 +73,7 @@
             return;
         }
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        status.innerText = "Sonando:\n" + track.name;
+        status.innerText = "Sonando de tu carpeta:\n" + track.name;
         player.src = track.download_url;
         player.play().catch(() => status.innerText = "Error al reproducir. Toca de nuevo.");
         player.onended = reproducir;
