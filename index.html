@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Venezuela Llaneras</title>
+    <title>FM Center - Emisión Digital</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
@@ -16,70 +16,78 @@
 <body>
 
 <div class="box">
-    <h1 style="color:white; margin:0;">FM CENTER</h1>
-    <h2 style="margin:5px 0; color:#fecb00;">VENEZUELA LLANERAS</h2>
+    <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
+    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERA</h2>
     
-    <div id="status">Verificando conexión...</div>
+    <div id="status">Sintonizando...</div>
     
-    <button class="boton" onclick="reproducir()">▶ REPRODUCIR LLANERAS</button>
+    <button class="boton" onclick="reproducirMusica()">▶ REPRODUCIR</button>
 
     <div class="vol-container">
-        <label style="font-size: 11px;">VOLUMEN</label><br>
-        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
+        <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
+        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumen(this.value)">
     </div>
 
     <audio id="player"></audio>
 </div>
 
 <script>
-    // DATOS CORREGIDOS SEGÚN TU CAPTURA
-    const config = {
-        usuario: "miempresaprotik",
-        repo: "FM-Center-Venezuela-", // AQUÍ ESTÁ EL GUION QUE FALTABA
-        carpeta: "Musica"
-    };
+    // Configuración Directa
+    const usuario = "miempresaprotik"; 
+    const repo = "FM-Center-Venezuela";
+    const carpeta = "Musica"; 
 
     let canciones = [];
     const player = document.getElementById('player');
     const status = document.getElementById('status');
 
     async function cargarBiblioteca() {
-        // Forzamos la limpieza de caché con Math.random
-        const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}?nocache=${Math.random()}`;
-        
         try {
-            const res = await fetch(url);
-            
-            if (res.status === 404) {
-                status.innerText = "Error: Verifica que el repo se llame '" + config.repo + "' y la carpeta '" + config.carpeta + "'.";
-                return;
-            }
-
+            const res = await fetch(`https://api.github.com/repos/${usuario}/${repo}/contents/${carpeta}`);
             const data = await res.json();
             
             if(Array.isArray(data)) {
                 // Filtramos archivos mp3
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "¡Conexión Exitosa!\nSe encontraron " + canciones.length + " temas llaneros.";
+                // Ocultamos cualquier mensaje técnico de carga
+                status.innerText = "¡Sistemas Listos!\nPresiona Reproducir.";
+            } else {
+                status.innerText = "Sintonizando..."; // Mantenemos un estado limpio
             }
         } catch (e) {
-            status.innerText = "Error de conexión. Revisa tu señal.";
+            status.innerText = "Error de conexión.";
         }
     }
 
-    function reproducir() {
+    function ajustarVolumen(valor) {
+        player.volume = valor;
+    }
+
+    function reproducirMusica() {
         if (canciones.length === 0) {
             cargarBiblioteca();
             return;
         }
+
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        status.innerText = "Sonando de tu carpeta:\n" + track.name;
+        
+        // Limpiamos el nombre del archivo para que parezca profesional
+        // Quitamos la extensión .mp3 y los guiones bajos por espacios
+        let nombreLimpio = track.name.replace('.mp3', '').replace(/_/g, ' ');
+        
+        // CORRECCIÓN: Usamos solo "Sonando:"
+        status.innerText = "Sonando:\n" + nombreLimpio;
+        
         player.src = track.download_url;
-        player.play().catch(() => status.innerText = "Error al reproducir. Toca de nuevo.");
-        player.onended = reproducir;
+        player.play().catch(() => status.innerText = "Error. Intenta reproducir de nuevo.");
+        
+        // Al terminar una, que empiece otra sola (bucle automático)
+        player.onended = reproducirMusica;
     }
 
+    // Iniciar carga al abrir la web
     window.onload = cargarBiblioteca;
 </script>
 </body>
 </html>
+
