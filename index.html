@@ -3,12 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FM Center - Venezuela Llaneras</title>
+    <title>FM Center - Venezuela Llanera</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
+        
+        /* Estilo del botón normal */
         .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.3s; }
-        .boton:disabled { background: #444; color: #888; cursor: not-allowed; opacity: 0.6; }
+        
+        /* ESTO FUERZA EL COLOR GRIS CUANDO SE DESHABILITA */
+        .boton:disabled { 
+            background: #444444 !important; 
+            color: #888888 !important; 
+            cursor: not-allowed !important; 
+            opacity: 1 !important;
+        }
+
         .vol-container { margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; }
@@ -18,7 +28,7 @@
 
 <div class="box">
     <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
-    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERAS</h2>
+    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERA</h2>
     
     <div id="status">Sintonizando...</div>
     
@@ -65,7 +75,7 @@
             return;
         }
 
-        // Deshabilitamos el botón al dar clic
+        // BLOQUEO INMEDIATO DEL BOTÓN
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
 
@@ -76,16 +86,16 @@
         player.src = track.download_url;
         
         player.play().catch(() => {
-            status.innerText = "Error. Intenta de nuevo.";
+            status.innerText = "Error. Toca de nuevo.";
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
         });
 
-        // Si la canción termina, se vuelve a habilitar el botón para la siguiente
+        // Al terminar, habilitamos para que el sistema elija la siguiente
         player.onended = () => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            reproducirMusica(); // Esto mantiene la radio automática
+            reproducirMusica(); 
         };
     }
 
