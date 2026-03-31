@@ -7,18 +7,8 @@
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
-        
-        /* Estilo del botón */
         .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.3s; }
-        
-        /* Estado deshabilitado */
-        .boton:disabled { 
-            background: #444444 !important; 
-            color: #888888 !important; 
-            cursor: not-allowed !important; 
-            opacity: 1 !important;
-        }
-
+        .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; opacity: 1 !important; }
         .vol-container { margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; }
@@ -29,24 +19,23 @@
 <div class="box">
     <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
     <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERAS</h2>
-    
     <div id="status">Sintonizando...</div>
-    
     <button id="btnPlay" class="boton" onclick="reproducirMusica()">▶ REPRODUCIR</button>
-
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
     </div>
-
     <audio id="player"></audio>
 </div>
 
 <script>
-    // Configuración de múltiples cuentas de almacenamiento
+    // SISTEMA MULTI-NODO FM CENTER (5 CUENTAS INTEGRADAS)
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
-        { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" }
+        { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
+        { usuario: "miempresapro1", repo: "FM-Center", carpeta: "Musica2" },
+        { usuario: "miempresapro20", repo: "FM-Center-", carpeta: "Musica3" },
+        { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
     let canciones = [];
@@ -54,8 +43,8 @@
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
 
-    // Carga archivos de una de las cuentas al azar
     async function cargarBiblioteca() {
+        // Seleccionamos un nodo al azar de los 5 disponibles
         const config = bibliotecas[Math.floor(Math.random() * bibliotecas.length)];
         
         try {
@@ -64,13 +53,15 @@
             const data = await res.json();
             
             if(Array.isArray(data)) {
-                // Filtramos archivos MP3
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "Sintonización lista.\nConectado a: " + config.usuario;
+                status.innerText = "Sintonización lista.\nConectado al Nodo: " + config.usuario;
+            } else {
+                throw new Error("Carpeta vacía o error de API");
             }
         } catch (e) {
-            status.innerText = "Error de sintonía.\nReintentando...";
-            console.error("Error en nodo: " + config.usuario);
+            status.innerText = "Buscando señal...\n(Cambiando de Nodo)";
+            // Si un nodo falla, intenta cargar otro automáticamente
+            setTimeout(cargarBiblioteca, 1000);
         }
     }
 
@@ -82,44 +73,38 @@
             return;
         }
 
-        // Bloqueo del botón para evitar clics dobles
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
 
-        // Elección de track aleatorio
         const track = canciones[Math.floor(Math.random() * canciones.length)];
         
-        // Limpieza de etiquetas en el nombre
+        // Limpieza profunda de nombres de archivo
         let nombreLimpio = track.name
             .replace('.mp3', '')
             .replace(/_/g, ' ')
             .replace(/\(MP3_128K\)/gi, '')
-            .replace(/\(MP3_160K\)/gi, '');
+            .replace(/\(MP3_160K\)/gi, '')
+            .replace(/%20/g, ' ');
         
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
         
         player.play().catch(() => {
-            status.innerText = "Error de carga.\nIntentando otra vez...";
+            status.innerText = "Micro-corte detectado.\nRe-sintonizando...";
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            reproducirMusica();
+            cargarBiblioteca().then(reproducirMusica);
         });
 
-        // Al terminar la canción, cambia de cuenta automáticamente
         player.onended = () => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            // Forzamos recarga de biblioteca para alternar cuentas
-            cargarBiblioteca().then(() => {
-                reproducirMusica(); 
-            });
+            // Rotación constante de nodos al terminar cada canción
+            cargarBiblioteca().then(reproducirMusica);
         };
     }
 
-    // Al cargar la página, prepara la primera conexión
     window.onload = cargarBiblioteca;
 </script>
-
 </body>
 </html>
