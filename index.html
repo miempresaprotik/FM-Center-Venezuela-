@@ -8,10 +8,10 @@
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
         
-        /* Estilo del botón normal */
+        /* Estilo del botón */
         .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.3s; }
         
-        /* ESTO FUERZA EL COLOR GRIS CUANDO SE DESHABILITA */
+        /* Estado deshabilitado */
         .boton:disabled { 
             background: #444444 !important; 
             color: #888888 !important; 
@@ -21,7 +21,7 @@
 
         .vol-container { margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
-        #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; }
+        #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; }
     </style>
 </head>
 <body>
@@ -43,63 +43,83 @@
 </div>
 
 <script>
-    const config = {
-        usuario: "miempresaprotik",
-        repo: "FM-Center-Venezuela-", 
-        carpeta: "Musica"
-    };
+    // Configuración de múltiples cuentas de almacenamiento
+    const bibliotecas = [
+        { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
+        { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" }
+    ];
 
     let canciones = [];
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
 
+    // Carga archivos de una de las cuentas al azar
     async function cargarBiblioteca() {
+        const config = bibliotecas[Math.floor(Math.random() * bibliotecas.length)];
+        
         try {
             const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`;
             const res = await fetch(url);
             const data = await res.json();
             
             if(Array.isArray(data)) {
+                // Filtramos archivos MP3
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "Sintonización lista.";
+                status.innerText = "Sintonización lista.\nConectado a: " + config.usuario;
             }
         } catch (e) {
-            status.innerText = "Error de sintonía.";
+            status.innerText = "Error de sintonía.\nReintentando...";
+            console.error("Error en nodo: " + config.usuario);
         }
     }
 
     function reproducirMusica() {
         if (canciones.length === 0) {
-            cargarBiblioteca();
+            cargarBiblioteca().then(() => {
+                if (canciones.length > 0) reproducirMusica();
+            });
             return;
         }
 
-        // BLOQUEO INMEDIATO DEL BOTÓN
+        // Bloqueo del botón para evitar clics dobles
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
 
+        // Elección de track aleatorio
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        let nombreLimpio = track.name.replace('.mp3', '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '');
+        
+        // Limpieza de etiquetas en el nombre
+        let nombreLimpio = track.name
+            .replace('.mp3', '')
+            .replace(/_/g, ' ')
+            .replace(/\(MP3_128K\)/gi, '')
+            .replace(/\(MP3_160K\)/gi, '');
         
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
         
         player.play().catch(() => {
-            status.innerText = "Error. Toca de nuevo.";
+            status.innerText = "Error de carga.\nIntentando otra vez...";
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
+            reproducirMusica();
         });
 
-        // Al terminar, habilitamos para que el sistema elija la siguiente
+        // Al terminar la canción, cambia de cuenta automáticamente
         player.onended = () => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            reproducirMusica(); 
+            // Forzamos recarga de biblioteca para alternar cuentas
+            cargarBiblioteca().then(() => {
+                reproducirMusica(); 
+            });
         };
     }
 
+    // Al cargar la página, prepara la primera conexión
     window.onload = cargarBiblioteca;
 </script>
+
 </body>
 </html>
