@@ -19,7 +19,7 @@
 <div class="box">
     <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
     <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERAS</h2>
-    <div id="status">Sintonizando...</div>
+    <div id="status">Buscando señal...</div>
     <button id="btnPlay" class="boton" onclick="reproducirMusica()">▶ REPRODUCIR</button>
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
@@ -29,7 +29,6 @@
 </div>
 
 <script>
-    // SISTEMA MULTI-NODO FM CENTER (5 CUENTAS INTEGRADAS)
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -44,32 +43,24 @@
     const btnPlay = document.getElementById('btnPlay');
 
     async function cargarBiblioteca() {
-        // Seleccionamos un nodo al azar de los 5 disponibles
         const config = bibliotecas[Math.floor(Math.random() * bibliotecas.length)];
-        
         try {
             const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`;
             const res = await fetch(url);
             const data = await res.json();
-            
             if(Array.isArray(data)) {
                 canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "Sintonización lista.\nConectado al Nodo: " + config.usuario;
-            } else {
-                throw new Error("Carpeta vacía o error de API");
-            }
+                status.innerText = "Señal sintonizada.";
+            } else { throw new Error(); }
         } catch (e) {
-            status.innerText = "Buscando señal...\n(Cambiando de Nodo)";
-            // Si un nodo falla, intenta cargar otro automáticamente
+            // Reintento silencioso en segundo plano
             setTimeout(cargarBiblioteca, 1000);
         }
     }
 
     function reproducirMusica() {
         if (canciones.length === 0) {
-            cargarBiblioteca().then(() => {
-                if (canciones.length > 0) reproducirMusica();
-            });
+            cargarBiblioteca().then(() => { if (canciones.length > 0) reproducirMusica(); });
             return;
         }
 
@@ -77,8 +68,6 @@
         btnPlay.innerText = "📻 EN EMISIÓN...";
 
         const track = canciones[Math.floor(Math.random() * canciones.length)];
-        
-        // Limpieza profunda de nombres de archivo
         let nombreLimpio = track.name
             .replace('.mp3', '')
             .replace(/_/g, ' ')
@@ -90,7 +79,6 @@
         player.src = track.download_url;
         
         player.play().catch(() => {
-            status.innerText = "Micro-corte detectado.\nRe-sintonizando...";
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
             cargarBiblioteca().then(reproducirMusica);
@@ -99,7 +87,6 @@
         player.onended = () => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            // Rotación constante de nodos al terminar cada canción
             cargarBiblioteca().then(reproducirMusica);
         };
     }
