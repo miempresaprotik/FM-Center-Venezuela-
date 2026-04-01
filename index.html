@@ -6,25 +6,48 @@
     <title>FM Center - Venezuela Llaneras</title>
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-        .box { background: #1a1a1a; padding: 30px; border-radius: 20px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
-        .boton { background: #003da5; color: white; border: none; padding: 20px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: 0.3s; }
+        
+        .box { background: #1a1a1a; padding: 25px; border-radius: 25px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; }
+        
+        /* LOGO SUPERIOR */
+        .logo-fm { width: 130px; height: auto; margin-bottom: 10px; }
+
+        .titulos h1 { color:white; margin:0; font-size: 24px; letter-spacing: 1px; }
+        .titulos h2 { margin:5px 0 15px 0; font-size: 17px; color: #fecb00; font-weight: normal; }
+
+        /* IMAGEN DE LA RADIO CENTRAL */
+        .imagen-radio { width: 100%; border-radius: 15px; border: 1px solid #333; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+
+        #status { color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; margin-bottom: 10px; }
+
+        .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
         .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; opacity: 1 !important; }
-        .vol-container { margin-top: 20px; background: #222; padding: 10px; border-radius: 10px; }
+
+        .vol-container { margin-top: 20px; background: #222; padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
-        #status { margin-top: 15px; color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h1 style="color:white; margin:0; font-size: 24px;">FM CENTER</h1>
-    <h2 style="margin:5px 0; font-size: 18px; color: #fecb00;">VENEZUELA LLANERAS</h2>
-    <div id="status">Buscando señal...</div>
-    <button id="btnPlay" class="boton" onclick="reproducirMusica()">▶ REPRODUCIR</button>
+    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/logo%20FM%20Center.jpg" class="logo-fm" alt="Logo FM Center">
+
+    <div class="titulos">
+        <h1>FM CENTER</h1>
+        <h2>VENEZUELA LLANERAS</h2>
+    </div>
+
+    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg" class="imagen-radio" alt="Radio">
+
+    <div id="status">Sintonizando señal llanera...</div>
+
+    <button id="btnPlay" class="boton" onclick="iniciarReproduccion()">▶ REPRODUCIR</button>
+
     <div class="vol-container">
-        <label style="color:#fecb00; font-size: 11px;">CONTROL DE VOLUMEN</label><br>
+        <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
     </div>
+
     <audio id="player"></audio>
 </div>
 
@@ -37,39 +60,68 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
-    let canciones = [];
+    let listaMaestra = [];
+    let indiceActual = 0;
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
 
-    async function cargarBiblioteca() {
-        const config = bibliotecas[Math.floor(Math.random() * bibliotecas.length)];
-        try {
-            const url = `https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`;
-            const res = await fetch(url);
-            const data = await res.json();
+    // Función para mezclar la lista (Shuffle)
+    function mezclarLista(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // Carga TODAS las canciones de TODOS los repositorios
+    async function cargarTodo() {
+        btnPlay.disabled = true;
+        status.innerText = "Sincronizando todas las fuentes...";
+        
+        let promesas = bibliotecas.map(config => 
+            fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`)
+            .then(res => res.json())
+            .catch(() => [])
+        );
+
+        const resultados = await Promise.all(promesas);
+        
+        listaMaestra = [];
+        resultados.forEach(data => {
             if(Array.isArray(data)) {
-                canciones = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                status.innerText = "Señal sintonizada.";
-            } else { throw new Error(); }
-        } catch (e) {
-            // Reintento silencioso en segundo plano
-            setTimeout(cargarBiblioteca, 1000);
+                const mp3 = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
+                listaMaestra = [...listaMaestra, ...mp3];
+            }
+        });
+
+        if(listaMaestra.length > 0) {
+            listaMaestra = mezclarLista(listaMaestra);
+            status.innerText = "Señal sintonizada.\n" + listaMaestra.length + " temas listos.";
+            btnPlay.disabled = false;
+        } else {
+            status.innerText = "Error de conexión.\nReintentando...";
+            setTimeout(cargarTodo, 3000);
         }
     }
 
-    function reproducirMusica() {
-        if (canciones.length === 0) {
-            cargarBiblioteca().then(() => { if (canciones.length > 0) reproducirMusica(); });
-            return;
-        }
-
+    function iniciarReproduccion() {
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
+        reproducirSiguiente();
+    }
 
-        const track = canciones[Math.floor(Math.random() * canciones.length)];
+    function reproducirSiguiente() {
+        if (indiceActual >= listaMaestra.length) {
+            // Cuando se acaban todas, vuelve a mezclar y empieza de cero
+            listaMaestra = mezclarLista(listaMaestra);
+            indiceActual = 0;
+        }
+
+        const track = listaMaestra[indiceActual];
         let nombreLimpio = track.name
-            .replace('.mp3', '')
+            .replace(/\.mp3$/i, '')
             .replace(/_/g, ' ')
             .replace(/\(MP3_128K\)/gi, '')
             .replace(/\(MP3_160K\)/gi, '')
@@ -77,21 +129,17 @@
         
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
-        
+        indiceActual++;
+
         player.play().catch(() => {
-            btnPlay.disabled = false;
-            btnPlay.innerText = "▶ REPRODUCIR";
-            cargarBiblioteca().then(reproducirMusica);
+            console.log("Error en tema, saltando...");
+            reproducirSiguiente();
         });
 
-        player.onended = () => {
-            btnPlay.disabled = false;
-            btnPlay.innerText = "▶ REPRODUCIR";
-            cargarBiblioteca().then(reproducirMusica);
-        };
+        player.onended = reproducirSiguiente;
     }
 
-    window.onload = cargarBiblioteca;
+    window.onload = cargarTodo;
 </script>
 </body>
 </html>
