@@ -46,7 +46,6 @@
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
 
-        /* Estilo del reloj visual */
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
     </style>
 </head>
@@ -83,6 +82,14 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
+    const anunciosMotivadores = [
+        "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
+        "No te apartes de nuestra señal, seguimos con lo mejor del arpa, cuatro y maracas.",
+        "FM Center Venezuela Llaneras, conectando nuestro folklore con el mundo.",
+        "La mejor selección de joropo y pasaje la escuchas aquí, en FM Center.",
+        "¡Arpa, maestro! Seguimos disfrutando de nuestra música en FM Center."
+    ];
+
     let listaMaestra = [];
     let indiceActual = 0;
     let volumenUsuario = 0.8;
@@ -99,47 +106,49 @@
         return array;
     }
 
-    // --- FUNCIÓN DEL LOCUTOR AUTOMÁTICO ---
+    // --- SISTEMA DE LOCUCIÓN ---
+    function hablar(mensaje, animado = false) {
+        const volOriginal = volumenUsuario;
+        player.volume = volOriginal * 0.2; // Bajar música
+
+        const speech = new SpeechSynthesisUtterance(mensaje);
+        speech.lang = 'es-VE';
+        speech.rate = animado ? 0.95 : 0.9;
+
+        speech.onend = () => { player.volume = volOriginal; }; // Subir música
+        window.speechSynthesis.speak(speech);
+    }
+
     function anunciarHora() {
         const ahora = new Date();
         const horas = ahora.getHours();
         const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
         const hora12 = horas % 12 || 12;
-
-        const mensaje = `En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`;
-        
-        // Efecto Ducking: Bajamos el volumen de la música
-        const volOriginal = volumenUsuario;
-        player.volume = volOriginal * 0.2;
-
-        const speech = new SpeechSynthesisUtterance(mensaje);
-        speech.lang = 'es-VE';
-        speech.rate = 0.9;
-
-        // Al terminar de hablar, regresamos el volumen a la normalidad
-        speech.onend = () => {
-            player.volume = volOriginal;
-        };
-
-        window.speechSynthesis.speak(speech);
+        hablar(`En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`);
     }
 
-    // Monitor de tiempo y reloj visual
+    function lanzarAnuncioMotivador() {
+        const frase = anunciosMotivadores[Math.floor(Math.random() * anunciosMotivadores.length)];
+        hablar(frase, true);
+    }
+
+    // Monitor de tiempo
     setInterval(() => {
         const ahora = new Date();
         const hh = ahora.getHours();
         const mm = ahora.getMinutes();
         const ss = ahora.getSeconds();
         
-        // Actualizar reloj visual
+        // Reloj visual
         const displayH = hh % 12 || 12;
         const displayM = mm < 10 ? '0'+mm : mm;
         const displayAP = hh >= 12 ? 'pm' : 'am';
         relojMini.innerText = `HORA LOCAL: ${displayH}:${displayM} ${displayAP}`;
 
-        // Disparar anuncio exactamente al minuto 00:00
-        if (mm === 0 && ss === 0) {
-            anunciarHora();
+        // Triggers de audio
+        if (ss === 0) {
+            if (mm === 0) anunciarHora();
+            else if (mm === 15 || mm === 30 || mm === 45) lanzarAnuncioMotivador();
         }
     }, 1000);
 
@@ -198,5 +207,4 @@
     window.onload = cargarTodo;
 </script>
 </body>
-    </html>
-    
+</html>
