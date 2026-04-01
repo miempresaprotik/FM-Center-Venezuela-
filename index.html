@@ -8,11 +8,10 @@
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         
         .box { 
-            background-image: linear-gradient(rgba(26, 26, 26, 0.6), rgba(26, 26, 26, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: brightness(1.2);
             padding: 30px; 
             border-radius: 25px; 
             border: 2px solid #fecb00; 
@@ -23,44 +22,32 @@
             flex-direction: column; 
             align-items: center; 
             box-sizing: border-box;
-            position: relative;
-        }
-        
-        .box > * {
-            position: relative;
-            filter: brightness(1);
         }
 
-        /* AJUSTE TÉCNICO PARA EL LOGO CON FONDO BLANCO */
+        /* ESTILO PARA EL NUEVO LOGO PNG TRANSPARENTE */
         .logo-fm { 
-            width: 130px; 
+            width: 140px; 
             height: auto; 
-            margin-bottom: 5px; 
-            
-            /* Bordes redondeados para suavizar el recuadro blanco */
-            border-radius: 20px;
-            
-            /* Esto ayuda a "mezclar" el fondo blanco con el fondo de la radio */
-            mix-blend-mode: multiply; 
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 8px rgba(254, 203, 0, 0.4)); /* Sutil resplandor dorado */
         }
 
-        /* Unificación de los Títulos */
         .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
         .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
 
-        #status { color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
+        #status { color: #fff; font-size: 14px; min-height: 55px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
 
         .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
         .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; opacity: 1 !important; }
 
-        .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.9); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
+        .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/logo%20FM%20Center.jpg" class="logo-fm" alt="Logo FM Center">
+    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo FM Center">
 
     <div class="titulos">
         <h1>FM CENTER</h1>
@@ -80,7 +67,6 @@
 </div>
 
 <script>
-    // Tu configuración de bibliotecas intacta
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -114,7 +100,6 @@
         );
 
         const resultados = await Promise.all(promesas);
-        
         listaMaestra = [];
         resultados.forEach(data => {
             if(Array.isArray(data)) {
@@ -144,28 +129,17 @@
             listaMaestra = mezclarLista(listaMaestra);
             indiceActual = 0;
         }
-
         const track = listaMaestra[indiceActual];
-        let nombreLimpio = track.name
-            .replace(/\.mp3$/i, '')
-            .replace(/_/g, ' ')
-            .replace(/\(MP3_128K\)/gi, '')
-            .replace(/\(MP3_160K\)/gi, '')
-            .replace(/%20/g, ' ');
-        
+        let nombreLimpio = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '').replace(/\(MP3_160K\)/gi, '').replace(/%20/g, ' ');
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
         indiceActual++;
-
-        player.play().catch(() => {
-            console.log("Error en tema, saltando...");
-            reproducirSiguiente();
-        });
-
+        player.play().catch(() => reproducirSiguiente());
         player.onended = reproducirSiguiente;
     }
 
     window.onload = cargarTodo;
 </script>
 </body>
-</html>
+            </html>
+            
