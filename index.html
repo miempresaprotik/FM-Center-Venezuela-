@@ -22,22 +22,20 @@
             flex-direction: column; 
             align-items: center; 
             box-sizing: border-box;
-            position: relative; /* Necesario para posicionar el logo en absoluto */
+            position: relative; /* Para mover el logo a la esquina */
         }
 
-        /* AJUSTE: LOGO MÁS PEQUEÑO Y A LA IZQUIERDA */
+        /* LOGO PEQUEÑO EN LA ESQUINA SUPERIOR DERECHA */
         .logo-fm { 
-            position: absolute; /* Lo sacamos del flujo normal */
-            top: 20px; /* Separación del borde superior */
-            left: 20px; /* Separación del borde izquierdo */
-            
-            width: 100px; /* Reducción de tamaño del logo (era 130px) */
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 70px; /* Tamaño reducido para que no estorbe */
             height: auto; 
-            filter: drop-shadow(0 0 10px rgba(254, 203, 0, 0.5)); /* Resplandor dorado */
+            filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5));
         }
 
-        /* Ajuste de títulos para compensar el espacio del logo */
-        .titulos { margin-top: 50px; } /* Añadimos espacio para que no choque con el logo */
+        .titulos { margin-top: 30px; } 
         .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
         .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
 
@@ -53,7 +51,7 @@
 <body>
 
 <div class="box">
-    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo FM Center">
+    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo">
 
     <div class="titulos">
         <h1>FM CENTER</h1>
@@ -73,7 +71,6 @@
 </div>
 
 <script>
-    // Mantenemos tus bibliotecas intactas
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -99,15 +96,12 @@
     async function cargarTodo() {
         btnPlay.disabled = true;
         status.innerText = "Sincronizando fuentes llaneras...";
-        
         let promesas = bibliotecas.map(config => 
             fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`)
             .then(res => res.json())
             .catch(() => [])
         );
-
         const resultados = await Promise.all(promesas);
-        
         listaMaestra = [];
         resultados.forEach(data => {
             if(Array.isArray(data)) {
@@ -115,7 +109,6 @@
                 listaMaestra = [...listaMaestra, ...mp3];
             }
         });
-
         if(listaMaestra.length > 0) {
             listaMaestra = mezclarLista(listaMaestra);
             status.innerText = "Señal sintonizada.";
@@ -137,24 +130,12 @@
             listaMaestra = mezclarLista(listaMaestra);
             indiceActual = 0;
         }
-
         const track = listaMaestra[indiceActual];
-        let nombreLimpio = track.name
-            .replace(/\.mp3$/i, '')
-            .replace(/_/g, ' ')
-            .replace(/\(MP3_128K\)/gi, '')
-            .replace(/\(MP3_160K\)/gi, '')
-            .replace(/%20/g, ' ');
-        
+        let nombreLimpio = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '').replace(/\(MP3_160K\)/gi, '').replace(/%20/g, ' ');
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
         indiceActual++;
-
-        player.play().catch(() => {
-            console.log("Error en tema, saltando...");
-            reproducirSiguiente();
-        });
-
+        player.play().catch(() => reproducirSiguiente());
         player.onended = reproducirSiguiente;
     }
 
