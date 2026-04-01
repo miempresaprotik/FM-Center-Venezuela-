@@ -7,18 +7,12 @@
     <style>
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         
-        /* CONTENEDOR PRINCIPAL CON IMAGEN DE FONDO ACLARADA */
         .box { 
-            /* RUTA DE TU IMAGEN DE FONDO */
-            /* ACLARADO: Reducción de la opacidad del negro superpuesto */
             background-image: linear-gradient(rgba(26, 26, 26, 0.6), rgba(26, 26, 26, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            
-            /* ACLARADO: Filtro de brillo para la imagen base */
             filter: brightness(1.2);
-
             padding: 30px; 
             border-radius: 25px; 
             border: 2px solid #fecb00; 
@@ -29,20 +23,30 @@
             flex-direction: column; 
             align-items: center; 
             box-sizing: border-box;
-            position: relative; /* Necesario para que el brillo no afecte al texto amarillo */
+            position: relative;
         }
         
-        /* Aseguramos que el contenido dentro del .box no se aclare */
         .box > * {
             position: relative;
-            filter: brightness(1); /* Volvemos al brillo normal para el texto y logo */
+            filter: brightness(1);
         }
 
-        /* LOGO SUPERIOR MANTENIDO */
-        .logo-fm { width: 130px; height: auto; margin-bottom: 10px; }
+        /* AJUSTE TÉCNICO PARA EL LOGO CON FONDO BLANCO */
+        .logo-fm { 
+            width: 130px; 
+            height: auto; 
+            margin-bottom: 5px; 
+            
+            /* Bordes redondeados para suavizar el recuadro blanco */
+            border-radius: 20px;
+            
+            /* Esto ayuda a "mezclar" el fondo blanco con el fondo de la radio */
+            mix-blend-mode: multiply; 
+        }
 
-        .titulos h1 { color:white; margin:0; font-size: 24px; letter-spacing: 1px; }
-        .titulos h2 { margin:5px 0 20px 0; font-size: 17px; color: #fecb00; font-weight: normal; }
+        /* Unificación de los Títulos */
+        .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
+        .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
 
         #status { color: #fff; font-size: 14px; min-height: 50px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
 
@@ -76,7 +80,7 @@
 </div>
 
 <script>
-    // Mantenemos tus bibliotecas y lógica intactas
+    // Tu configuración de bibliotecas intacta
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -101,7 +105,6 @@
 
     async function cargarTodo() {
         btnPlay.disabled = true;
-        // MENSAJE INICIAL LIMPIO
         status.innerText = "Sincronizando fuentes llaneras...";
         
         let promesas = bibliotecas.map(config => 
@@ -122,7 +125,6 @@
 
         if(listaMaestra.length > 0) {
             listaMaestra = mezclarLista(listaMaestra);
-            // YA NO MUESTRA EL NÚMERO DE CANCIONES
             status.innerText = "Señal sintonizada.";
             btnPlay.disabled = false;
         } else {
