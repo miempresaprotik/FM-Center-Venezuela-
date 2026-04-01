@@ -8,7 +8,7 @@
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         
         .box { 
-            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -22,16 +22,22 @@
             flex-direction: column; 
             align-items: center; 
             box-sizing: border-box;
+            position: relative; /* Necesario para posicionar el logo en absoluto */
         }
 
-        /* ESTILO PARA EL NUEVO LOGO PNG TRANSPARENTE */
+        /* AJUSTE: LOGO MÁS PEQUEÑO Y A LA IZQUIERDA */
         .logo-fm { 
-            width: 140px; 
+            position: absolute; /* Lo sacamos del flujo normal */
+            top: 20px; /* Separación del borde superior */
+            left: 20px; /* Separación del borde izquierdo */
+            
+            width: 100px; /* Reducción de tamaño del logo (era 130px) */
             height: auto; 
-            margin-bottom: 10px;
-            filter: drop-shadow(0 0 8px rgba(254, 203, 0, 0.4)); /* Sutil resplandor dorado */
+            filter: drop-shadow(0 0 10px rgba(254, 203, 0, 0.5)); /* Resplandor dorado */
         }
 
+        /* Ajuste de títulos para compensar el espacio del logo */
+        .titulos { margin-top: 50px; } /* Añadimos espacio para que no choque con el logo */
         .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
         .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
 
@@ -67,6 +73,7 @@
 </div>
 
 <script>
+    // Mantenemos tus bibliotecas intactas
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -100,6 +107,7 @@
         );
 
         const resultados = await Promise.all(promesas);
+        
         listaMaestra = [];
         resultados.forEach(data => {
             if(Array.isArray(data)) {
@@ -129,17 +137,28 @@
             listaMaestra = mezclarLista(listaMaestra);
             indiceActual = 0;
         }
+
         const track = listaMaestra[indiceActual];
-        let nombreLimpio = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '').replace(/\(MP3_160K\)/gi, '').replace(/%20/g, ' ');
+        let nombreLimpio = track.name
+            .replace(/\.mp3$/i, '')
+            .replace(/_/g, ' ')
+            .replace(/\(MP3_128K\)/gi, '')
+            .replace(/\(MP3_160K\)/gi, '')
+            .replace(/%20/g, ' ');
+        
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
         indiceActual++;
-        player.play().catch(() => reproducirSiguiente());
+
+        player.play().catch(() => {
+            console.log("Error en tema, saltando...");
+            reproducirSiguiente();
+        });
+
         player.onended = reproducirSiguiente;
     }
 
     window.onload = cargarTodo;
 </script>
 </body>
-            </html>
-            
+</html>
