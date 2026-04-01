@@ -22,15 +22,14 @@
             flex-direction: column; 
             align-items: center; 
             box-sizing: border-box;
-            position: relative; /* Para mover el logo a la esquina */
+            position: relative;
         }
 
-        /* LOGO PEQUEÑO EN LA ESQUINA SUPERIOR DERECHA */
         .logo-fm { 
             position: absolute;
             top: 15px;
             right: 15px;
-            width: 70px; /* Tamaño reducido para que no estorbe */
+            width: 70px; 
             height: auto; 
             filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5));
         }
@@ -46,6 +45,9 @@
 
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
+
+        /* Estilo del reloj visual */
+        #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -64,8 +66,10 @@
 
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
-        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('player').volume = this.value">
+        <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumenManual(this.value)">
     </div>
+
+    <div id="reloj-mini">Cargando hora...</div>
 
     <audio id="player"></audio>
 </div>
@@ -81,9 +85,11 @@
 
     let listaMaestra = [];
     let indiceActual = 0;
+    let volumenUsuario = 0.8;
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
+    const relojMini = document.getElementById('reloj-mini');
 
     function mezclarLista(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -91,6 +97,55 @@
             [array[i], array[j]] = [array[j], array[i]];
         }
         return array;
+    }
+
+    // --- FUNCIÓN DEL LOCUTOR AUTOMÁTICO ---
+    function anunciarHora() {
+        const ahora = new Date();
+        const horas = ahora.getHours();
+        const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
+        const hora12 = horas % 12 || 12;
+
+        const mensaje = `En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`;
+        
+        // Efecto Ducking: Bajamos el volumen de la música
+        const volOriginal = volumenUsuario;
+        player.volume = volOriginal * 0.2;
+
+        const speech = new SpeechSynthesisUtterance(mensaje);
+        speech.lang = 'es-VE';
+        speech.rate = 0.9;
+
+        // Al terminar de hablar, regresamos el volumen a la normalidad
+        speech.onend = () => {
+            player.volume = volOriginal;
+        };
+
+        window.speechSynthesis.speak(speech);
+    }
+
+    // Monitor de tiempo y reloj visual
+    setInterval(() => {
+        const ahora = new Date();
+        const hh = ahora.getHours();
+        const mm = ahora.getMinutes();
+        const ss = ahora.getSeconds();
+        
+        // Actualizar reloj visual
+        const displayH = hh % 12 || 12;
+        const displayM = mm < 10 ? '0'+mm : mm;
+        const displayAP = hh >= 12 ? 'pm' : 'am';
+        relojMini.innerText = `HORA LOCAL: ${displayH}:${displayM} ${displayAP}`;
+
+        // Disparar anuncio exactamente al minuto 00:00
+        if (mm === 0 && ss === 0) {
+            anunciarHora();
+        }
+    }, 1000);
+
+    function ajustarVolumenManual(v) {
+        volumenUsuario = parseFloat(v);
+        player.volume = volumenUsuario;
     }
 
     async function cargarTodo() {
@@ -122,6 +177,7 @@
     function iniciarReproduccion() {
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
+        player.volume = volumenUsuario;
         reproducirSiguiente();
     }
 
@@ -142,4 +198,5 @@
     window.onload = cargarTodo;
 </script>
 </body>
-</html>
+    </html>
+    
