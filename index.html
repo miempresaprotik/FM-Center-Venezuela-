@@ -82,7 +82,6 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
-    // --- LIBRERÍA DE SALUDOS ORGANIZADA POR BLOQUES (3 HORAS DE VARIEDAD) ---
     const saludos = {
         min15: [
             "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
@@ -118,23 +117,25 @@
         return array;
     }
 
-    // --- MOTOR DE VOZ OPTIMIZADO ---
+    // --- MOTOR DE VOZ REFORZADO (ANTI-SUSPENSIÓN) ---
     function hablar(mensaje, animado = false) {
-        // Cancelar cualquier proceso trabado para que no se quede mudo
         window.speechSynthesis.cancel(); 
 
-        const volOriginal = volumenUsuario;
-        player.volume = volOriginal * 0.2; // Ducking suave
+        // Retraso de 150ms para asegurar que el sistema despierte
+        setTimeout(() => {
+            const volOriginal = volumenUsuario;
+            player.volume = volOriginal * 0.15; // Ducking profundo para mejor claridad
 
-        const speech = new SpeechSynthesisUtterance(mensaje);
-        speech.lang = 'es-VE';
-        speech.rate = animado ? 0.95 : 0.9;
+            const speech = new SpeechSynthesisUtterance(mensaje);
+            speech.lang = 'es-VE';
+            speech.rate = animado ? 0.95 : 0.9;
+            speech.volume = 1.0; 
 
-        // Asegurar que el volumen regrese si hay error o termina
-        speech.onerror = () => { player.volume = volOriginal; };
-        speech.onend = () => { player.volume = volOriginal; };
+            speech.onend = () => { player.volume = volOriginal; };
+            speech.onerror = () => { player.volume = volOriginal; };
 
-        window.speechSynthesis.speak(speech);
+            window.speechSynthesis.speak(speech);
+        }, 150);
     }
 
     function anunciarHora() {
@@ -142,34 +143,31 @@
         const horas = ahora.getHours();
         const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
         const hora12 = horas % 12 || 12;
-        hablar(`En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`);
+        hablar(`En FM Center, son las ${hora12} de la noche, ${hora12} ${ampm}`);
     }
 
     function lanzarAnuncioMotivador(minuto) {
         let clave = `min${minuto}`;
         let lista = saludos[clave];
         let index = indices[clave];
-
         hablar(lista[index], true);
-
-        // Rotar al siguiente saludo para la próxima hora
         indices[clave] = (index + 1) % lista.length;
     }
 
-    // Monitor de tiempo (Triggers exactos)
+    // MONITOR DE TIEMPO
     setInterval(() => {
         const ahora = new Date();
         const hh = ahora.getHours();
         const mm = ahora.getMinutes();
         const ss = ahora.getSeconds();
         
-        // Reloj visual
+        // Reloj visual con segundos para verificar actividad
         const displayH = hh % 12 || 12;
         const displayM = mm < 10 ? '0'+mm : mm;
+        const displayS = ss < 10 ? '0'+ss : ss;
         const displayAP = hh >= 12 ? 'pm' : 'am';
-        relojMini.innerText = `HORA LOCAL: ${displayH}:${displayM} ${displayAP}`;
+        relojMini.innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${displayAP}`;
 
-        // Lanzar eventos en el segundo 0
         if (ss === 0) {
             if (mm === 0) anunciarHora();
             else if (mm === 15 || mm === 30 || mm === 45) {
