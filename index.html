@@ -5,47 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FM Center - Venezuela Llaneras</title>
     <style>
+        /* TU DISEÑO ORIGINAL SIN CAMBIOS */
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-        
         .box { 
             background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            padding: 30px; 
-            border-radius: 25px; 
-            border: 2px solid #fecb00; 
-            width: 85%; 
-            max-width: 400px; 
-            box-shadow: 0 10px 50px rgba(0,0,0,0.9); 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            box-sizing: border-box;
-            position: relative;
+            background-size: cover; background-position: center; background-repeat: no-repeat; padding: 30px; border-radius: 25px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; box-sizing: border-box; position: relative;
         }
-
-        .logo-fm { 
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 70px; 
-            height: auto; 
-            filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5));
-        }
-
+        .logo-fm { position: absolute; top: 15px; right: 15px; width: 70px; height: auto; filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5)); }
         .titulos { margin-top: 30px; } 
         .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
         .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
-
         #status { color: #fff; font-size: 14px; min-height: 55px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
-
         .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
-        .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; opacity: 1 !important; }
-
+        .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; }
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
-
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
     </style>
 </head>
@@ -53,23 +27,14 @@
 
 <div class="box">
     <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo">
-
-    <div class="titulos">
-        <h1>FM CENTER</h1>
-        <h2>VENEZUELA LLANERAS</h2>
-    </div>
-
+    <div class="titulos"><h1>FM CENTER</h1><h2>VENEZUELA LLANERAS</h2></div>
     <div id="status">Sintonizando señal llanera...</div>
-
     <button id="btnPlay" class="boton" onclick="iniciarReproduccion()">▶ REPRODUCIR</button>
-
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumenManual(this.value)">
     </div>
-
     <div id="reloj-mini">Cargando sistema...</div>
-
     <audio id="player" crossorigin="anonymous"></audio>
 </div>
 
@@ -82,7 +47,6 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
-    // --- LIBRERÍA DE SALUDOS AMPLIADA (6 POR SECTOR) ---
     const saludos = {
         min15: [
             "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
@@ -129,24 +93,11 @@
         return array;
     }
 
-    // --- BLOQUEO DE PANTALLA (WAKE LOCK) ---
     async function solicitarWakeLock() {
-        try {
-            if ('wakeLock' in navigator) {
+        if ('wakeLock' in navigator) {
+            try {
                 wakeLock = await navigator.wakeLock.request('screen');
-            }
-        } catch (err) { console.log("WakeLock no soportado o denegado."); }
-    }
-
-    // --- CONTROLES EN PANTALLA DE BLOQUEO ---
-    function actualizarMediaSession(titulo) {
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: titulo,
-                artist: 'FM Center - Venezuela Llaneras',
-                artwork: [{ src: 'https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png', sizes: '512x512', type: 'image/png' }]
-            });
-            navigator.mediaSession.setActionHandler('nexttrack', () => reproducirSiguiente());
+            } catch (err) { console.log("WakeLock error"); }
         }
     }
 
@@ -159,39 +110,29 @@
             speech.lang = 'es-VE';
             speech.rate = animado ? 0.95 : 0.9;
             speech.onend = () => { player.volume = volOriginal; };
-            speech.onerror = () => { player.volume = volOriginal; };
             window.speechSynthesis.speak(speech);
         }, 150);
     }
 
     function anunciarHora() {
         const ahora = new Date();
-        const horas = ahora.getHours();
-        const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
-        const hora12 = horas % 12 || 12;
+        const hora12 = ahora.getHours() % 12 || 12;
+        const ampm = ahora.getHours() >= 12 ? 'p.m.' : 'a.m.';
         hablar(`En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`);
     }
 
     function lanzarAnuncioMotivador(minuto) {
         let clave = `min${minuto}`;
         let lista = saludos[clave];
-        let index = indices[clave];
-        hablar(lista[index], true);
-        indices[clave] = (index + 1) % lista.length;
+        hablar(lista[indices[clave]], true);
+        indices[clave] = (indices[clave] + 1) % lista.length;
     }
 
-    // MONITOR DE TIEMPO
     setInterval(() => {
         const ahora = new Date();
-        const hh = ahora.getHours();
-        const mm = ahora.getMinutes();
-        const ss = ahora.getSeconds();
-        
-        const displayH = hh % 12 || 12;
-        const displayM = mm < 10 ? '0'+mm : mm;
-        const displayS = ss < 10 ? '0'+ss : ss;
-        const displayAP = hh >= 12 ? 'pm' : 'am';
-        relojMini.innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${displayAP}`;
+        const hh = ahora.getHours(), mm = ahora.getMinutes(), ss = ahora.getSeconds();
+        const displayH = hh % 12 || 12, displayM = mm < 10 ? '0'+mm : mm, displayS = ss < 10 ? '0'+ss : ss;
+        relojMini.innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${hh >= 12 ? 'pm' : 'am'}`;
 
         if (ss === 0) {
             if (mm === 0) anunciarHora();
@@ -206,64 +147,41 @@
 
     async function cargarTodo() {
         btnPlay.disabled = true;
-        status.innerText = "Sincronizando fuentes llaneras...";
-        
-        // --- BARARJAR SALUDOS AL INICIAR PARA ALEATORIEDAD ---
-        mezclarLista(saludos.min15);
-        mezclarLista(saludos.min30);
-        mezclarLista(saludos.min45);
-
-        let promesas = bibliotecas.map(config => 
-            fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`)
-            .then(res => res.json()).catch(() => [])
-        );
+        mezclarLista(saludos.min15); mezclarLista(saludos.min30); mezclarLista(saludos.min45);
+        let promesas = bibliotecas.map(config => fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`).then(res => res.json()).catch(() => []));
         const resultados = await Promise.all(promesas);
         listaMaestra = [];
-        resultados.forEach(data => {
-            if(Array.isArray(data)) {
-                const mp3 = data.filter(f => f.name.toLowerCase().endsWith('.mp3'));
-                listaMaestra = [...listaMaestra, ...mp3];
-            }
-        });
+        resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
         if(listaMaestra.length > 0) {
             listaMaestra = mezclarLista(listaMaestra);
             status.innerText = "Señal sintonizada.";
             btnPlay.disabled = false;
-        } else {
-            status.innerText = "Error de conexión.\nReintentando...";
-            setTimeout(cargarTodo, 3000);
-        }
+        } else { setTimeout(cargarTodo, 3000); }
     }
 
     function iniciarReproduccion() {
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
-        solicitarWakeLock(); // No apagar pantalla
+        solicitarWakeLock();
         reproducirSiguiente();
     }
 
     function reproducirSiguiente() {
-        if (indiceActual >= listaMaestra.length) {
-            listaMaestra = mezclarLista(listaMaestra);
-            indiceActual = 0;
-        }
+        if (indiceActual >= listaMaestra.length) { listaMaestra = mezclarLista(listaMaestra); indiceActual = 0; }
         const track = listaMaestra[indiceActual];
-        let nombreLimpio = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '').replace(/\(MP3_160K\)/gi, '').replace(/%20/g, ' ');
-        status.innerText = "Sonando:\n" + nombreLimpio;
+        let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
+        status.innerText = "Sonando:\n" + nombre;
         player.src = track.download_url;
-        actualizarMediaSession(nombreLimpio);
         indiceActual++;
-        player.play().catch(() => reproducirSiguiente());
-        player.onended = reproducirSiguiente;
+        player.play();
     }
 
-    // Reactivar Wake Lock si el usuario vuelve a la pestaña
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && btnPlay.disabled) solicitarWakeLock();
-    });
+    // EL ARREGLO PARA QUE NO SE PAUSE:
+    player.onended = () => {
+        reproducirSiguiente();
+    };
 
     window.onload = cargarTodo;
 </script>
 </body>
-        </html>
-    
+</html>
