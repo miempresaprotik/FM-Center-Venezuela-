@@ -18,6 +18,11 @@
         #status { color: #fff; font-size: 14px; min-height: 55px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
         .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
         .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; }
+        
+        /* Botón de sincronización discreto */
+        .btn-sync { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 15px; cursor: pointer; }
+        .btn-sync:disabled { opacity: 0.4; cursor: wait; }
+
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
@@ -30,6 +35,9 @@
     <div class="titulos"><h1>FM CENTER</h1><h2>VENEZUELA LLANERAS</h2></div>
     <div id="status">Sintonizando señal llanera...</div>
     <button id="btnPlay" class="boton" onclick="iniciarReproduccion()">▶ REPRODUCIR</button>
+    
+    <button id="btnSync" class="btn-sync" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
+
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumenManual(this.value)">
@@ -83,6 +91,7 @@
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
+    const btnSync = document.getElementById('btnSync');
     const relojMini = document.getElementById('reloj-mini');
 
     function mezclarLista(array) {
@@ -95,9 +104,28 @@
 
     async function solicitarWakeLock() {
         if ('wakeLock' in navigator) {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) { console.log("WakeLock error"); }
+            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        }
+    }
+
+    function sincronizarPagina() {
+        localStorage.setItem('lastSync', Date.now());
+        location.reload();
+    }
+
+    function checkSyncCooldown() {
+        const lastSync = localStorage.getItem('lastSync');
+        if (lastSync) {
+            const diff = Date.now() - parseInt(lastSync);
+            if (diff < 120000) {
+                btnSync.disabled = true;
+                const restante = Math.ceil((120000 - diff) / 1000);
+                btnSync.innerText = `SINC. BLOQUEADA (${restante}s)`;
+                setTimeout(checkSyncCooldown, 1000);
+            } else {
+                btnSync.disabled = false;
+                btnSync.innerText = "🔄 SINCRONIZAR SEÑAL";
+            }
         }
     }
 
@@ -110,6 +138,7 @@
             speech.lang = 'es-VE';
             speech.rate = animado ? 0.95 : 0.9;
             speech.onend = () => { player.volume = volOriginal; };
+            speech.onerror = () => { player.volume = volOriginal; };
             window.speechSynthesis.speak(speech);
         }, 150);
     }
@@ -147,6 +176,7 @@
 
     async function cargarTodo() {
         btnPlay.disabled = true;
+        checkSyncCooldown();
         mezclarLista(saludos.min15); mezclarLista(saludos.min30); mezclarLista(saludos.min45);
         let promesas = bibliotecas.map(config => fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`).then(res => res.json()).catch(() => []));
         const resultados = await Promise.all(promesas);
@@ -176,11 +206,7 @@
         player.play();
     }
 
-    // EL ARREGLO PARA QUE NO SE PAUSE:
-    player.onended = () => {
-        reproducirSiguiente();
-    };
-
+    player.onended = () => { reproducirSiguiente(); };
     window.onload = cargarTodo;
 </script>
 </body>
