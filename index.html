@@ -68,9 +68,9 @@
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumenManual(this.value)">
     </div>
 
-    <div id="reloj-mini">Cargando hora...</div>
+    <div id="reloj-mini">Cargando sistema...</div>
 
-    <audio id="player"></audio>
+    <audio id="player" crossorigin="anonymous"></audio>
 </div>
 
 <script>
@@ -82,21 +82,31 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
+    // --- LIBRERÍA DE SALUDOS AMPLIADA (6 POR SECTOR) ---
     const saludos = {
         min15: [
             "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
             "Disfruta de la mejor Música Llanera, aquí en FM Center Venezuela, Música, Llano y Folklor.",
-            "Sintonizas FM Center Venezuela Llaneras, Lo mejor de Nuestra Música Llanera."
+            "Sintonizas FM Center Venezuela Llaneras, Lo mejor de Nuestra Música Llanera.",
+            "La señal que recorre el llano entero, transmitiendo para ti en FM Center.",
+            "Siente el zapateo y el rugir del arpa en la emisora líder, FM Center Venezuela.",
+            "Desde el corazón de Venezuela, llevamos nuestra esencia llanera a tu dispositivo."
         ],
         min30: [
             "No te apartes de nuestra señal, seguimos con lo mejor del arpa, cuatro y maracas.",
             "En cualquier rincón de Venezuela, FM Center es tu compañía llanera.",
-            "En cualquier rincón de Venezuela, FM Center Venezuela, es tu emisora de Música Llanera."
+            "En cualquier rincón de Venezuela, FM Center Venezuela, es tu emisora de Música Llanera.",
+            "Donde suene un cuatro, ahí está FM Center acompañando tu jornada.",
+            "Canto, verso y copla en una sola señal. Somos FM Center, puro sentimiento.",
+            "Tu conexión directa con nuestras raíces llaneras sigue aquí, en FM Center."
         ],
         min45: [
             "FM Center Venezuela Llaneras, conectando nuestro folklore, pura Música.",
             "¡Arpa, maestro! Seguimos disfrutando de la verdadera esencia llanera.",
-            "Reporta tu sintonía, estamos escuchando  lo mejor del folklor,  Esto es FM Center Venezuela Llaneras."
+            "Reporta tu sintonía, estamos escuchando lo mejor del folklor, Esto es FM Center Venezuela Llaneras.",
+            "El folklore no descansa y nosotros tampoco. FM Center, siempre llanera.",
+            "Orgullo venezolano en cada nota musical. Sintonizas FM Center Llaneras.",
+            "Llevamos el aroma de la sabana a tus oídos. FM Center, folklore sin fronteras."
         ]
     };
 
@@ -104,6 +114,8 @@
     let listaMaestra = [];
     let indiceActual = 0;
     let volumenUsuario = 0.8;
+    let wakeLock = null;
+
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
@@ -117,23 +129,37 @@
         return array;
     }
 
-    // --- MOTOR DE VOZ REFORZADO (ANTI-SUSPENSIÓN) ---
+    // --- BLOQUEO DE PANTALLA (WAKE LOCK) ---
+    async function solicitarWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+            }
+        } catch (err) { console.log("WakeLock no soportado o denegado."); }
+    }
+
+    // --- CONTROLES EN PANTALLA DE BLOQUEO ---
+    function actualizarMediaSession(titulo) {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: titulo,
+                artist: 'FM Center - Venezuela Llaneras',
+                artwork: [{ src: 'https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png', sizes: '512x512', type: 'image/png' }]
+            });
+            navigator.mediaSession.setActionHandler('nexttrack', () => reproducirSiguiente());
+        }
+    }
+
     function hablar(mensaje, animado = false) {
         window.speechSynthesis.cancel(); 
-
-        // Retraso de 150ms para asegurar que el sistema despierte
         setTimeout(() => {
             const volOriginal = volumenUsuario;
-            player.volume = volOriginal * 0.15; // Ducking profundo para mejor claridad
-
+            player.volume = volOriginal * 0.15; 
             const speech = new SpeechSynthesisUtterance(mensaje);
             speech.lang = 'es-VE';
             speech.rate = animado ? 0.95 : 0.9;
-            speech.volume = 1.0; 
-
             speech.onend = () => { player.volume = volOriginal; };
             speech.onerror = () => { player.volume = volOriginal; };
-
             window.speechSynthesis.speak(speech);
         }, 150);
     }
@@ -143,7 +169,7 @@
         const horas = ahora.getHours();
         const ampm = horas >= 12 ? 'p.m.' : 'a.m.';
         const hora12 = horas % 12 || 12;
-        hablar(`En FM Center, son las ${hora12} de la noche, ${hora12} ${ampm}`);
+        hablar(`En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`);
     }
 
     function lanzarAnuncioMotivador(minuto) {
@@ -161,7 +187,6 @@
         const mm = ahora.getMinutes();
         const ss = ahora.getSeconds();
         
-        // Reloj visual con segundos para verificar actividad
         const displayH = hh % 12 || 12;
         const displayM = mm < 10 ? '0'+mm : mm;
         const displayS = ss < 10 ? '0'+ss : ss;
@@ -170,9 +195,7 @@
 
         if (ss === 0) {
             if (mm === 0) anunciarHora();
-            else if (mm === 15 || mm === 30 || mm === 45) {
-                lanzarAnuncioMotivador(mm);
-            }
+            else if (mm === 15 || mm === 30 || mm === 45) lanzarAnuncioMotivador(mm);
         }
     }, 1000);
 
@@ -184,10 +207,15 @@
     async function cargarTodo() {
         btnPlay.disabled = true;
         status.innerText = "Sincronizando fuentes llaneras...";
+        
+        // --- BARARJAR SALUDOS AL INICIAR PARA ALEATORIEDAD ---
+        mezclarLista(saludos.min15);
+        mezclarLista(saludos.min30);
+        mezclarLista(saludos.min45);
+
         let promesas = bibliotecas.map(config => 
             fetch(`https://api.github.com/repos/${config.usuario}/${config.repo}/contents/${config.carpeta}`)
-            .then(res => res.json())
-            .catch(() => [])
+            .then(res => res.json()).catch(() => [])
         );
         const resultados = await Promise.all(promesas);
         listaMaestra = [];
@@ -210,7 +238,7 @@
     function iniciarReproduccion() {
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
-        player.volume = volumenUsuario;
+        solicitarWakeLock(); // No apagar pantalla
         reproducirSiguiente();
     }
 
@@ -223,10 +251,16 @@
         let nombreLimpio = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_128K\)/gi, '').replace(/\(MP3_160K\)/gi, '').replace(/%20/g, ' ');
         status.innerText = "Sonando:\n" + nombreLimpio;
         player.src = track.download_url;
+        actualizarMediaSession(nombreLimpio);
         indiceActual++;
         player.play().catch(() => reproducirSiguiente());
         player.onended = reproducirSiguiente;
     }
+
+    // Reactivar Wake Lock si el usuario vuelve a la pestaña
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && btnPlay.disabled) solicitarWakeLock();
+    });
 
     window.onload = cargarTodo;
 </script>
