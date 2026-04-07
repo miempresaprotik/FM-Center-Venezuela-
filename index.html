@@ -125,7 +125,6 @@
     }
 
     function sincronizarPagina() {
-        // Marcamos que se quiere un SALTO real
         localStorage.setItem('skip_active', 'true');
         localStorage.removeItem('segundo_exacto');
         localStorage.removeItem('timestamp_salida');
@@ -137,7 +136,6 @@
         const lastSync = localStorage.getItem('lastSync');
         if (lastSync) {
             const diff = Date.now() - parseInt(lastSync);
-            // Bloqueo de 2.5 minutos (150000 milisegundos)
             if (diff < 150000) {
                 btnSync.disabled = true;
                 const restante = Math.ceil((150000 - diff) / 1000);
@@ -158,20 +156,17 @@
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
         const skip = localStorage.getItem('skip_active') === 'true';
 
-        // LÓGICA DE DECISIÓN: 
-        // Si hay orden de SALTO (skip) ignoramos el tiempo y avanzamos el índice.
+        // LÓGICA DE DECISIÓN
         if (skip) {
             indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
             if (indiceActual >= listaMaestra.length) indiceActual = 0;
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
         } 
-        // Si no hay salto, pero pasó más de 3 minutos, también avanzamos.
         else if (forzarNueva || tiempoFuera >= 180000) {
             if (tsSalida) indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
             localStorage.removeItem('segundo_exacto');
         } 
-        // Si no hay salto y pasó poco tiempo, retomamos la misma pista.
         else if (tsSalida && tiempoFuera < 180000) {
             indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
         }
@@ -179,18 +174,27 @@
         const track = listaMaestra[indiceActual];
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
         status.innerText = "Sonando:\n" + nombre;
+        
         player.src = track.download_url;
+        player.load(); // Vital para archivos en caché
 
-        const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
-        if (!skip && !forzarNueva && segGuardado && tiempoFuera < 180000) {
-            player.currentTime = segGuardado + (tiempoFuera / 1000);
+        // Solo aplicamos tiempo si hay internet. Offline es mejor empezar de cero para evitar errores.
+        if (navigator.onLine && !skip && !forzarNueva) {
+            const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
+            if (segGuardado && tiempoFuera < 180000) {
+                player.currentTime = segGuardado + (tiempoFuera / 1000);
+            }
         }
 
         indiceActual++;
+        
+        // Intentar reproducir con manejo de error para modo offline
         player.play().catch(() => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
+            status.innerText = "Listo para sonar (Sin Conexión)";
         });
+
         if (modoReservaActivo) llenarTanque();
     }
 
@@ -215,11 +219,12 @@
             const nombreGuardado = localStorage.getItem('nombre_pista');
 
             if (skip) {
-                // Si viene de pulsar sincronizar, preparamos el estado visual
                 status.innerText = "Saltando a nueva señal...";
             } else if (estabaEncendida) {
                 if (nombreGuardado) status.innerText = nombreGuardado;
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
+                // Si estaba encendida, intentamos arrancar de una vez
+                iniciarReproduccion();
             } else {
                 status.innerText = "Señal sintonizada.";
             }
@@ -232,6 +237,12 @@
             }
         }
     }
+
+    // Manejador de error para cuando una canción no carga (útil en modo offline)
+    player.onerror = () => {
+        console.log("Error cargando pista, saltando...");
+        reproducirSiguiente(true);
+    };
 
     setInterval(() => {
         const d = new Date();
