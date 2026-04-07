@@ -19,16 +19,23 @@
         .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
         .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; }
         
-        /* Botones secundarios con tu estilo */
-        .btn-secundario { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
-        .btn-secundario:disabled { opacity: 0.4; cursor: wait; }
+        .btn-sync { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 15px; cursor: pointer; }
+        .btn-sync:disabled { opacity: 0.4; cursor: wait; }
 
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
-        
-        /* Estilo para el aviso de descarga */
-        #status-descarga { color: #fff; font-size: 9px; margin-top: 4px; display: none; text-shadow: 1px 1px 2px #000; font-weight: normal; }
+
+        /* ESTILOS NUEVOS PARA EL SWITCH DE RESERVA */
+        .reserva-cont { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .reserva-label { font-size: 9px; color: #aaa; letter-spacing: 1px; }
+        .switch { position: relative; display: inline-block; width: 38px; height: 18px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px; border: 1px solid #fecb00; }
+        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #003da5; border-color: #fff; }
+        input:checked + .slider:before { transform: translateX(18px); }
+        #status-tanque { font-size: 9px; color: #fecb00; font-weight: bold; display: none; text-shadow: 1px 1px 1px #000; }
     </style>
 </head>
 <body>
@@ -39,10 +46,16 @@
     <div id="status">Sintonizando señal llanera...</div>
     <button id="btnPlay" class="boton" onclick="iniciarReproduccion()">▶ REPRODUCIR</button>
     
-    <button id="btnSync" class="btn-secundario" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
-    
-    <button id="btnOffline" class="btn-secundario" onclick="activarModoOffline()" style="margin-top: 8px;">📥 ESCUCHAR SIN CONEXIÓN</button>
-    <div id="status-descarga">Preparando archivos... <span id="progreso-offline">0</span>/10</div>
+    <button id="btnSync" class="btn-sync" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
+
+    <div class="reserva-cont">
+        <span class="reserva-label">MODO TANQUE DE RESERVA</span>
+        <label class="switch">
+            <input type="checkbox" id="toggleOffline" onchange="gestionarModoReserva(this.checked)">
+            <span class="slider"></span>
+        </label>
+        <div id="status-tanque">⛽ TANQUE: <span id="cant-reserva">0</span>/15</div>
+    </div>
 
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
@@ -53,9 +66,9 @@
 </div>
 
 <script>
-    // Registro del Service Worker para el modo offline
+    // Registro de Service Worker para soporte Offline
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW no registrado", err));
+        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW error", err));
     }
 
     const bibliotecas = [
@@ -98,12 +111,54 @@
     let indiceActual = 0;
     let volumenUsuario = 0.8;
     let wakeLock = null;
+    let modoReservaActivo = false;
+    const MAX_RESERVA = 15;
 
     const player = document.getElementById('player');
     const status = document.getElementById('status');
     const btnPlay = document.getElementById('btnPlay');
     const btnSync = document.getElementById('btnSync');
     const relojMini = document.getElementById('reloj-mini');
+
+    // LOGICA DE TANQUE DE RESERVA
+    async function gestionarModoReserva(activado) {
+        modoReservaActivo = activado;
+        const divStatus = document.getElementById('status-tanque');
+        if (activado) {
+            divStatus.style.display = "block";
+            llenarTanque();
+        } else {
+            divStatus.style.display = "none";
+            if ('caches' in window) await caches.delete('fm-center-v1');
+        }
+    }
+
+    async function llenarTanque() {
+        if (!modoReservaActivo || !navigator.onLine) return;
+        const cache = await caches.open('fm-center-v1');
+        const keys = await cache.keys();
+        let enCache = keys.length;
+        document.getElementById('cant-reserva').innerText = enCache;
+
+        if (enCache < MAX_RESERVA) {
+            let puntero = indiceActual;
+            let descargadas = 0;
+            let faltan = MAX_RESERVA - enCache;
+
+            while (descargadas < faltan && puntero < listaMaestra.length) {
+                let track = listaMaestra[puntero];
+                const yaExiste = await cache.match(track.download_url);
+                if (!yaExiste) {
+                    try {
+                        await cache.add(track.download_url);
+                        descargadas++;
+                        document.getElementById('cant-reserva').innerText = enCache + descargadas;
+                    } catch (e) {}
+                }
+                puntero++;
+            }
+        }
+    }
 
     function mezclarLista(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -138,35 +193,6 @@
                 btnSync.innerText = "🔄 SINCRONIZAR SEÑAL";
             }
         }
-    }
-
-    // NUEVA FUNCIÓN MODO OFFLINE
-    async function activarModoOffline() {
-        const btnOffline = document.getElementById('btnOffline');
-        const stOffline = document.getElementById('status-descarga');
-        const proOffline = document.getElementById('progreso-offline');
-
-        if (!('caches' in window)) return alert("Navegador no compatible");
-
-        btnOffline.disabled = true;
-        btnOffline.innerText = "⏳ DESCARGANDO...";
-        stOffline.style.display = "block";
-
-        const cache = await caches.open('fm-center-v1');
-        const proximas = listaMaestra.slice(indiceActual, indiceActual + 10);
-        let descargadas = 0;
-
-        for (let cancion of proximas) {
-            try {
-                await cache.add(cancion.download_url);
-                descargadas++;
-                proOffline.innerText = descargadas;
-            } catch (e) { console.log("Error en una descarga"); }
-        }
-
-        btnOffline.innerText = "✅ LISTO PARA OFFLINE";
-        btnOffline.style.background = "rgba(0, 255, 0, 0.1)";
-        setTimeout(() => { stOffline.style.display = "none"; }, 5000);
     }
 
     function hablar(mensaje, animado = false) {
@@ -236,14 +262,24 @@
         reproducirSiguiente();
     }
 
-    function reproducirSiguiente() {
+    async function reproducirSiguiente() {
         if (indiceActual >= listaMaestra.length) { listaMaestra = mezclarLista(listaMaestra); indiceActual = 0; }
         const track = listaMaestra[indiceActual];
-        
-        // Limpieza automática de la canción anterior de la caché para no llenar el móvil
-        if (indiceActual > 0 && 'caches' in window) {
+
+        // Verificar si tenemos la canción en modo reserva si no hay internet
+        if (!navigator.onLine && modoReservaActivo) {
+            const cache = await caches.open('fm-center-v1');
+            const match = await cache.match(track.download_url);
+            if (!match) {
+                status.innerText = "⚠️ Esperando Red para Recargar la Radio...";
+                return;
+            }
+        }
+
+        // Limpiar caché de la canción anterior para ahorrar espacio
+        if (indiceActual > 0 && modoReservaActivo) {
             const anterior = listaMaestra[indiceActual - 1].download_url;
-            caches.open('fm-center-v1').then(cache => cache.delete(anterior));
+            caches.open('fm-center-v1').then(c => c.delete(anterior));
         }
 
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
@@ -251,8 +287,12 @@
         player.src = track.download_url;
         indiceActual++;
         player.play();
+
+        // Rellenar tanque en segundo plano si hay internet
+        if (modoReservaActivo) llenarTanque();
     }
 
+    window.addEventListener('online', () => { if(modoReservaActivo) llenarTanque(); });
     player.onended = () => { reproducirSiguiente(); };
     window.onload = cargarTodo;
 </script>
