@@ -1,19 +1,27 @@
+const CACHE_NAME = 'fm-center-v1';
+
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
+
 self.addEventListener('fetch', (event) => {
     if (event.request.url.includes('.mp3')) {
         event.respondWith(
-            // El truco está en 'ignoreSearch: true'
-            // Esto hace que si guardaste "cancion.mp3?id=1", 
-            // el sistema la encuentre aunque ahora pida "cancion.mp3?id=2"
+            // El secreto: ignoreSearch permite encontrar el MP3 aunque cambie la URL
             caches.match(event.request, { ignoreSearch: true }).then((response) => {
-                if (response) return response; 
+                if (response) return response;
                 
                 return fetch(event.request).catch(() => {
-                    // AQUÍ es donde el SW le dice al HTML: "Usa el tanque"
-                    // Si no encontró la canción exacta, podríamos incluso devolver
-                    // la primera que encuentre en el caché para que nunca haya silencio.
+                    // Si falla internet, buscamos CUALQUIER canción del tanque para no dejar silencio
                     return caches.open(CACHE_NAME).then((cache) => {
                         return cache.keys().then((keys) => {
-                            if (keys.length > 0) return cache.match(keys[0]);
+                            if (keys.length > 0) {
+                                return cache.match(keys[Math.floor(Math.random() * keys.length)]);
+                            }
                         });
                     });
                 });
