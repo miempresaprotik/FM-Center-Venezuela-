@@ -128,6 +128,7 @@
         localStorage.setItem('skip_active', 'true');
         localStorage.removeItem('segundo_exacto');
         localStorage.removeItem('timestamp_salida');
+        localStorage.removeItem('nombre_pista');
         localStorage.setItem('lastSync', Date.now());
         location.reload();
     }
@@ -156,16 +157,18 @@
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
         const skip = localStorage.getItem('skip_active') === 'true';
 
-        // LÓGICA DE DECISIÓN
-        if (skip) {
-            indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
+        // GESTIÓN DE ÍNDICE: Si hay salto, si pasó tiempo o terminó la canción, avanzamos.
+        if (skip || forzarNueva || tiempoFuera >= 180000) {
+            // Avanzamos al siguiente solo si ya había algo sonando antes
+            if (localStorage.getItem('ultimo_indice') !== null) {
+                indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
+            }
             if (indiceActual >= listaMaestra.length) indiceActual = 0;
+            
+            // LIMPIEZA TOTAL PARA EVITAR BUCLES
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
-        } 
-        else if (forzarNueva || tiempoFuera >= 180000) {
-            if (tsSalida) indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
-            localStorage.removeItem('segundo_exacto');
+            localStorage.removeItem('nombre_pista');
         } 
         else if (tsSalida && tiempoFuera < 180000) {
             indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
@@ -176,9 +179,9 @@
         status.innerText = "Sonando:\n" + nombre;
         
         player.src = track.download_url;
-        player.load(); // Vital para archivos en caché
+        player.load(); 
 
-        // Solo aplicamos tiempo si hay internet. Offline es mejor empezar de cero para evitar errores.
+        // Solo aplicamos tiempo si hay internet y NO es un salto forzado
         if (navigator.onLine && !skip && !forzarNueva) {
             const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
             if (segGuardado && tiempoFuera < 180000) {
@@ -188,11 +191,9 @@
 
         indiceActual++;
         
-        // Intentar reproducir con manejo de error para modo offline
         player.play().catch(() => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
-            status.innerText = "Listo para sonar (Sin Conexión)";
         });
 
         if (modoReservaActivo) llenarTanque();
@@ -223,8 +224,6 @@
             } else if (estabaEncendida) {
                 if (nombreGuardado) status.innerText = nombreGuardado;
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-                // Si estaba encendida, intentamos arrancar de una vez
-                iniciarReproduccion();
             } else {
                 status.innerText = "Señal sintonizada.";
             }
@@ -238,9 +237,9 @@
         }
     }
 
-    // Manejador de error para cuando una canción no carga (útil en modo offline)
     player.onerror = () => {
-        console.log("Error cargando pista, saltando...");
+        // Al fallar (común sin internet), forzamos salto para buscar una que sí esté guardada
+        localStorage.removeItem('segundo_exacto');
         reproducirSiguiente(true);
     };
 
@@ -250,10 +249,13 @@
     }, 1000);
 
     player.onended = () => {
+        // Al terminar, limpiamos memoria y forzamos la siguiente pista
         localStorage.removeItem('segundo_exacto');
         localStorage.removeItem('timestamp_salida');
+        localStorage.removeItem('nombre_pista');
         reproducirSiguiente(true);
     };
+
     window.onload = cargarTodo;
     function ajustarVolumenManual(v) { player.volume = v; }
 </script>
