@@ -125,9 +125,10 @@
     }
 
     function sincronizarPagina() {
+        // Marcamos que se quiere un SALTO real
         localStorage.setItem('skip_active', 'true');
         localStorage.removeItem('segundo_exacto');
-        localStorage.removeItem('nombre_pista');
+        localStorage.removeItem('timestamp_salida');
         localStorage.setItem('lastSync', Date.now());
         location.reload();
     }
@@ -136,9 +137,10 @@
         const lastSync = localStorage.getItem('lastSync');
         if (lastSync) {
             const diff = Date.now() - parseInt(lastSync);
-            if (diff < 120000) {
+            // Bloqueo de 2.5 minutos (150000 milisegundos)
+            if (diff < 150000) {
                 btnSync.disabled = true;
-                const restante = Math.ceil((120000 - diff) / 1000);
+                const restante = Math.ceil((150000 - diff) / 1000);
                 btnSync.innerText = `SINC. BLOQUEADA (${restante}s)`;
                 setTimeout(checkSyncCooldown, 1000);
             } else {
@@ -154,14 +156,24 @@
         const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
         const ahora = Date.now();
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
+        const skip = localStorage.getItem('skip_active') === 'true';
 
-        // Si NO forzamos nueva Y pasó menos de 3 minutos (180000 ms), intentamos retomar
-        if (!forzarNueva && tsSalida && tiempoFuera < 180000) {
-            indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-        } else if (forzarNueva || tiempoFuera >= 180000) {
-            // Si pasó más de 3 min o es sintonización, avanzamos el índice
+        // LÓGICA DE DECISIÓN: 
+        // Si hay orden de SALTO (skip) ignoramos el tiempo y avanzamos el índice.
+        if (skip) {
+            indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
+            if (indiceActual >= listaMaestra.length) indiceActual = 0;
+            localStorage.removeItem('skip_active');
+            localStorage.removeItem('segundo_exacto');
+        } 
+        // Si no hay salto, pero pasó más de 3 minutos, también avanzamos.
+        else if (forzarNueva || tiempoFuera >= 180000) {
             if (tsSalida) indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
-            localStorage.removeItem('segundo_exacto'); // Limpiamos tiempo para que empiece de 0
+            localStorage.removeItem('segundo_exacto');
+        } 
+        // Si no hay salto y pasó poco tiempo, retomamos la misma pista.
+        else if (tsSalida && tiempoFuera < 180000) {
+            indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
         }
 
         const track = listaMaestra[indiceActual];
@@ -169,9 +181,8 @@
         status.innerText = "Sonando:\n" + nombre;
         player.src = track.download_url;
 
-        // Solo aplicamos desfase si no es una pista forzada desde cero
         const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
-        if (!forzarNueva && segGuardado && tiempoFuera < 180000) {
+        if (!skip && !forzarNueva && segGuardado && tiempoFuera < 180000) {
             player.currentTime = segGuardado + (tiempoFuera / 1000);
         }
 
@@ -187,8 +198,6 @@
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
-        // Al darle al botón, llamamos a la función SIN forzar una nueva,
-        // para que ella misma decida si retoma o salta según el tiempo.
         reproducirSiguiente(false);
     }
 
@@ -206,14 +215,10 @@
             const nombreGuardado = localStorage.getItem('nombre_pista');
 
             if (skip) {
-                // Si viene de sintonizar, preparamos la siguiente
-                indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
-                localStorage.removeItem('skip_active');
-                status.innerText = "Señal sintonizada.";
+                // Si viene de pulsar sincronizar, preparamos el estado visual
+                status.innerText = "Saltando a nueva señal...";
             } else if (estabaEncendida) {
-                // Si solo refrescó, mostramos el nombre que estaba sonando
                 if (nombreGuardado) status.innerText = nombreGuardado;
-                // Dejamos el índice listo para retomar
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
             } else {
                 status.innerText = "Señal sintonizada.";
