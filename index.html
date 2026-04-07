@@ -106,7 +106,17 @@
 
     let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
     let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false;
+    let wakeLock = null; // Variable para mantener pantalla activa
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
+
+    // --- FUNCIÓN PARA MANTENER LA PANTALLA ENCENDIDA ---
+    async function activarMantenerEncendido() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+            }
+        } catch (err) {}
+    }
 
     function hablar(mensaje, animado = false) {
         window.speechSynthesis.cancel(); 
@@ -260,6 +270,7 @@
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
+        activarMantenerEncendido(); // Activa el Wake Lock al iniciar
         reproducirSiguiente(false);
     }
 
@@ -312,6 +323,13 @@
             else if ([15, 30, 45].includes(mm)) lanzarAnuncioMotivador(mm);
         }
     }, 1000);
+
+    // Re-activar Wake Lock si el usuario minimiza y vuelve a la app
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+            activarMantenerEncendido();
+        }
+    });
 
     player.onerror = () => {
         localStorage.removeItem('segundo_exacto');
