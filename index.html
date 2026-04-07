@@ -77,9 +77,68 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
-    let listaMaestra = [], indiceActual = 0, modoReservaActivo = false;
+    // --- ECOSISTEMA DE LOCUCIÓN RECUPERADO ---
+    const saludos = {
+        min15: [
+            "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
+            "Disfruta de la mejor Música Llanera, aquí en FM Center Venezuela, Música, Llano y Folklor.",
+            "Sintonizas FM Center Venezuela Llaneras, Lo mejor de Nuestra Música Llanera.",
+            "La señal que recorre el llano entero, transmitiendo para ti en FM Center.",
+            "Siente el zapateo y el rugir del arpa en la emisora líder, FM Center Venezuela.",
+            "Desde el corazón de Venezuela, llevamos nuestra esencia llanera a tu dispositivo."
+        ],
+        min30: [
+            "No te apartes de nuestra señal, seguimos con lo mejor del arpa, cuatro y maracas.",
+            "En cualquier rincón de Venezuela, FM Center es tu compañía llanera.",
+            "En cualquier rincón de Venezuela, FM Center Venezuela, es tu emisora de Música Llanera.",
+            "Donde suene un cuatro, ahí está FM Center acompañando tu jornada.",
+            "Canto, verso y copla en una sola señal. Somos FM Center, puro sentimiento.",
+            "Tu conexión directa con nuestras raíces llaneras sigue aquí, en FM Center."
+        ],
+        min45: [
+            "FM Center Venezuela Llaneras, conectando nuestro folklore, pura Música.",
+            "¡Arpa, maestro! Seguimos disfrutando de la verdadera esencia llanera.",
+            "Reporta tu sintonía, estamos escuchando lo mejor del folklor, Esto es FM Center Venezuela Llaneras.",
+            "El folklore no descansa y nosotros tampoco. FM Center, siempre llanera.",
+            "Orgullo venezolano en cada nota musical. Sintonizas FM Center Llaneras.",
+            "Llevamos el aroma de la sabana a tus oídos. FM Center, folklore sin fronteras."
+        ]
+    };
+
+    let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
+    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false;
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
+    // --- FUNCIONES DE VOZ RECUPERADAS ---
+    function hablar(mensaje, animado = false) {
+        window.speechSynthesis.cancel(); 
+        setTimeout(() => {
+            const volOriginal = volumenUsuario;
+            player.volume = volOriginal * 0.15; 
+            const speech = new SpeechSynthesisUtterance(mensaje);
+            speech.lang = 'es-VE';
+            speech.rate = animado ? 0.95 : 0.9;
+            speech.onend = () => { player.volume = volOriginal; };
+            speech.onerror = () => { player.volume = volOriginal; };
+            window.speechSynthesis.speak(speech);
+        }, 150);
+    }
+
+    function anunciarHora() {
+        const ahora = new Date();
+        const hora12 = ahora.getHours() % 12 || 12;
+        const ampm = ahora.getHours() >= 12 ? 'p.m.' : 'a.m.';
+        hablar(`En FM Center, son las ${hora12} de la tarde, ${hora12} ${ampm}`);
+    }
+
+    function lanzarAnuncioMotivador(minuto) {
+        let clave = `min${minuto}`;
+        let lista = saludos[clave];
+        hablar(lista[indicesLocucion[clave]], true);
+        indicesLocucion[clave] = (indicesLocucion[clave] + 1) % lista.length;
+    }
+
+    // --- LÓGICA DE PERSISTENCIA Y OFFLINE ---
     function idSilencioso() {
         if (!localStorage.getItem('fm_v_id')) {
             localStorage.setItem('fm_v_id', 'VIS-' + Math.floor(Math.random() * 90000 + 10000));
@@ -157,15 +216,11 @@
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
         const skip = localStorage.getItem('skip_active') === 'true';
 
-        // GESTIÓN DE ÍNDICE: Si hay salto, si pasó tiempo o terminó la canción, avanzamos.
         if (skip || forzarNueva || tiempoFuera >= 180000) {
-            // Avanzamos al siguiente solo si ya había algo sonando antes
             if (localStorage.getItem('ultimo_indice') !== null) {
                 indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
             }
             if (indiceActual >= listaMaestra.length) indiceActual = 0;
-            
-            // LIMPIEZA TOTAL PARA EVITAR BUCLES
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
             localStorage.removeItem('nombre_pista');
@@ -181,7 +236,6 @@
         player.src = track.download_url;
         player.load(); 
 
-        // Solo aplicamos tiempo si hay internet y NO es un salto forzado
         if (navigator.onLine && !skip && !forzarNueva) {
             const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
             if (segGuardado && tiempoFuera < 180000) {
@@ -190,12 +244,10 @@
         }
 
         indiceActual++;
-        
         player.play().catch(() => {
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
         });
-
         if (modoReservaActivo) llenarTanque();
     }
 
@@ -237,27 +289,13 @@
         }
     }
 
-    player.onerror = () => {
-        // Al fallar (común sin internet), forzamos salto para buscar una que sí esté guardada
-        localStorage.removeItem('segundo_exacto');
-        reproducirSiguiente(true);
-    };
-
+    // REINCORPORACIÓN DEL RELOJ CON EVENTOS DE VOZ
     setInterval(() => {
-        const d = new Date();
-        document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${d.toLocaleTimeString()}`;
-    }, 1000);
+        const ahora = new Date();
+        const hh = ahora.getHours(), mm = ahora.getMinutes(), ss = ahora.getSeconds();
+        const displayH = hh % 12 || 12, displayM = mm < 10 ? '0'+mm : mm, displayS = ss < 10 ? '0'+ss : ss;
+        
+        document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${hh >= 12 ? 'PM' : 'AM'}`;
 
-    player.onended = () => {
-        // Al terminar, limpiamos memoria y forzamos la siguiente pista
-        localStorage.removeItem('segundo_exacto');
-        localStorage.removeItem('timestamp_salida');
-        localStorage.removeItem('nombre_pista');
-        reproducirSiguiente(true);
-    };
-
-    window.onload = cargarTodo;
-    function ajustarVolumenManual(v) { player.volume = v; }
-</script>
-</body>
-</html>
+        // Disparador de locución (
+    
