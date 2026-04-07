@@ -297,5 +297,31 @@
         
         document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${hh >= 12 ? 'PM' : 'AM'}`;
 
-        // Disparador de locución (
+        // Disparador de locución (solo si la radio está activa)
+        if (ss === 0 && localStorage.getItem('radio_activa') === 'true') {
+            if (mm === 0) anunciarHora();
+            else if (mm === 15 || mm === 30 || mm === 45) lanzarAnuncioMotivador(mm);
+        }
+    }, 1000);
+
+    player.onerror = () => {
+        localStorage.removeItem('segundo_exacto');
+        reproducirSiguiente(true);
+    };
+
+    player.onended = () => {
+        localStorage.removeItem('segundo_exacto');
+        localStorage.removeItem('timestamp_salida');
+        localStorage.removeItem('nombre_pista');
+        reproducirSiguiente(true);
+    };
+
+    window.onload = cargarTodo;
+    function ajustarVolumenManual(v) { 
+        volumenUsuario = parseFloat(v);
+        player.volume = volumenUsuario; 
+    }
+</script>
+</body>
+</html>
     
