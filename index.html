@@ -19,13 +19,16 @@
         .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
         .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; }
         
-        /* Botón de sincronización discreto */
-        .btn-sync { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 15px; cursor: pointer; }
-        .btn-sync:disabled { opacity: 0.4; cursor: wait; }
+        /* Botones secundarios con tu estilo */
+        .btn-secundario { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-secundario:disabled { opacity: 0.4; cursor: wait; }
 
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
+        
+        /* Estilo para el aviso de descarga */
+        #status-descarga { color: #fff; font-size: 9px; margin-top: 4px; display: none; text-shadow: 1px 1px 2px #000; font-weight: normal; }
     </style>
 </head>
 <body>
@@ -36,7 +39,10 @@
     <div id="status">Sintonizando señal llanera...</div>
     <button id="btnPlay" class="boton" onclick="iniciarReproduccion()">▶ REPRODUCIR</button>
     
-    <button id="btnSync" class="btn-sync" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
+    <button id="btnSync" class="btn-secundario" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
+    
+    <button id="btnOffline" class="btn-secundario" onclick="activarModoOffline()" style="margin-top: 8px;">📥 ESCUCHAR SIN CONEXIÓN</button>
+    <div id="status-descarga">Preparando archivos... <span id="progreso-offline">0</span>/10</div>
 
     <div class="vol-container">
         <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
@@ -47,6 +53,11 @@
 </div>
 
 <script>
+    // Registro del Service Worker para el modo offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW no registrado", err));
+    }
+
     const bibliotecas = [
         { usuario: "miempresaprotik", repo: "FM-Center-Venezuela-", carpeta: "Musica" },
         { usuario: "miempresapro2", repo: "Musica1", carpeta: "Musica0" },
@@ -129,6 +140,35 @@
         }
     }
 
+    // NUEVA FUNCIÓN MODO OFFLINE
+    async function activarModoOffline() {
+        const btnOffline = document.getElementById('btnOffline');
+        const stOffline = document.getElementById('status-descarga');
+        const proOffline = document.getElementById('progreso-offline');
+
+        if (!('caches' in window)) return alert("Navegador no compatible");
+
+        btnOffline.disabled = true;
+        btnOffline.innerText = "⏳ DESCARGANDO...";
+        stOffline.style.display = "block";
+
+        const cache = await caches.open('fm-center-v1');
+        const proximas = listaMaestra.slice(indiceActual, indiceActual + 10);
+        let descargadas = 0;
+
+        for (let cancion of proximas) {
+            try {
+                await cache.add(cancion.download_url);
+                descargadas++;
+                proOffline.innerText = descargadas;
+            } catch (e) { console.log("Error en una descarga"); }
+        }
+
+        btnOffline.innerText = "✅ LISTO PARA OFFLINE";
+        btnOffline.style.background = "rgba(0, 255, 0, 0.1)";
+        setTimeout(() => { stOffline.style.display = "none"; }, 5000);
+    }
+
     function hablar(mensaje, animado = false) {
         window.speechSynthesis.cancel(); 
         setTimeout(() => {
@@ -199,6 +239,13 @@
     function reproducirSiguiente() {
         if (indiceActual >= listaMaestra.length) { listaMaestra = mezclarLista(listaMaestra); indiceActual = 0; }
         const track = listaMaestra[indiceActual];
+        
+        // Limpieza automática de la canción anterior de la caché para no llenar el móvil
+        if (indiceActual > 0 && 'caches' in window) {
+            const anterior = listaMaestra[indiceActual - 1].download_url;
+            caches.open('fm-center-v1').then(cache => cache.delete(anterior));
+        }
+
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
         status.innerText = "Sonando:\n" + nombre;
         player.src = track.download_url;
