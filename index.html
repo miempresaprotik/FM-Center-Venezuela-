@@ -244,18 +244,20 @@
 
         let track = listaMaestra[indiceActual];
         
-        // --- LÓGICA OFFLINE CORREGIDA (SINCRO DE TÍTULOS) ---
+        // --- LÓGICA OFFLINE AJUSTADA ---
         if (!navigator.onLine) {
+            status.innerText = "Sintonía en reserva:\nEn espera de conexión";
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
             if (tanqueOffline.length > 0) {
-                track = tanqueOffline[0]; // Siempre tomamos la primera del tanque en pantalla
+                track = tanqueOffline[0]; 
             }
+        } else {
+            if (!track) return;
+            let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
+            status.innerText = "Sonando:\n" + nombre;
         }
 
         if (!track) return;
-        let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
-        status.innerText = "Sonando:\n" + nombre;
-        
         player.src = track.download_url;
         player.load(); 
 
@@ -347,9 +349,9 @@
         if (!navigator.onLine) {
             let inv = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
             if (inv.length > 0) {
-                inv.shift(); // Quitamos la que terminó
+                inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
-                // Actualizamos el contador visual inmediatamente
+                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
