@@ -77,23 +77,27 @@
         { usuario: "papikkto002", repo: "FM-Center-", carpeta: "Musica4" }
     ];
 
-    const saludos = {
-        min15: ["Estás en sintonía de FM Center..."],
-        min30: ["En cualquier rincón de Venezuela..."],
-        min45: ["FM Center Venezuela Llaneras..."]
-    };
-
-    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false;
-    let wakeLock = null;
-    const MAX_RESERVA = 15;
+    let listaMaestra = [], indiceActual = 0, modoReservaActivo = false;
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
-    // ID de usuario persistente pero invisible
     function idSilencioso() {
         if (!localStorage.getItem('fm_v_id')) {
             localStorage.setItem('fm_v_id', 'VIS-' + Math.floor(Math.random() * 90000 + 10000));
         }
     }
+
+    // --- LÓGICA DE PERSISTENCIA Y TIEMPO REAL ---
+    function guardarEstado() {
+        if (!player.paused) {
+            localStorage.setItem('radio_activa', 'true');
+            localStorage.setItem('ultimo_indice', indiceActual - 1);
+            localStorage.setItem('segundo_exacto', player.currentTime);
+            localStorage.setItem('timestamp_salida', Date.now());
+        }
+    }
+
+    // Guardar estado cada segundo automáticamente
+    player.ontimeupdate = () => guardarEstado();
 
     async function gestionarModoReserva(activado) {
         modoReservaActivo = activado;
@@ -108,24 +112,24 @@
         const cache = await caches.open('fm-center-v1');
         const keys = await cache.keys();
         document.getElementById('cant-reserva').innerText = keys.length;
-
-        if (keys.length < MAX_RESERVA) {
-            let puntero = indiceActual;
-            let descargadas = 0;
-            while (descargadas < (MAX_RESERVA - keys.length) && puntero < listaMaestra.length) {
-                let track = listaMaestra[puntero];
-                if (!(await cache.match(track.download_url))) {
-                    try { await cache.add(track.download_url); descargadas++; } catch(e){}
+        if (keys.length < 15) {
+            let p = indiceActual;
+            let d = 0;
+            while (d < (15 - keys.length) && p < listaMaestra.length) {
+                let t = listaMaestra[p];
+                if (!(await cache.match(t.download_url))) {
+                    try { await cache.add(t.download_url); d++; } catch(e){}
                 }
-                puntero++;
-                document.getElementById('cant-reserva').innerText = keys.length + descargadas;
+                p++;
+                document.getElementById('cant-reserva').innerText = keys.length + d;
             }
         }
     }
 
-    // Sincronizar con salto de canción y cooldown de 2 min
     function sincronizarPagina() {
+        // Al sintonizar, forzamos SALTO y limpiamos el tiempo guardado
         localStorage.setItem('skip_active', 'true');
+        localStorage.removeItem('segundo_exacto');
         localStorage.setItem('lastSync', Date.now());
         location.reload();
     }
@@ -146,39 +150,38 @@
         }
     }
 
-    async function solicitarWakeLock() {
-        if ('wakeLock' in navigator) {
-            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-        }
-    }
-
-    async function reproducirSiguiente() {
+    async function reproducirSiguiente(desdeCero = false) {
         if (indiceActual >= listaMaestra.length) indiceActual = 0;
         const track = listaMaestra[indiceActual];
-
-        if (!navigator.onLine && modoReservaActivo) {
-            const cache = await caches.open('fm-center-v1');
-            const match = await cache.match(track.download_url);
-            if (!match) {
-                indiceActual++;
-                reproducirSiguiente();
-                return;
-            }
-        }
 
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
         status.innerText = "Sonando:\n" + nombre;
         player.src = track.download_url;
+
+        // Si es una recarga, aplicamos el adelanto de tiempo
+        if (!desdeCero) {
+            const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
+            const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
+            if (segGuardado && tsSalida) {
+                const desfase = (Date.now() - tsSalida) / 1000;
+                player.currentTime = segGuardado + desfase;
+            }
+        }
+
         indiceActual++;
-        player.play().catch(() => {});
+        player.play().catch(() => {
+            // Si el navegador bloquea el auto-play, mostramos el botón
+            btnPlay.disabled = false;
+            btnPlay.innerText = "▶ REPRODUCIR";
+        });
         if (modoReservaActivo) llenarTanque();
     }
 
     function iniciarReproduccion() {
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
-        solicitarWakeLock();
-        reproducirSiguiente();
+        localStorage.setItem('radio_activa', 'true');
+        reproducirSiguiente(true);
     }
 
     async function cargarTodo() {
@@ -190,14 +193,23 @@
         resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
         
         if(listaMaestra.length > 0) {
-            // Lógica de salto: si venimos de sintonizar, movemos el índice
-            if (localStorage.getItem('skip_active') === 'true') {
-                indiceActual = Math.floor(Math.random() * listaMaestra.length);
+            const skip = localStorage.getItem('skip_active') === 'true';
+            const estabaEncendida = localStorage.getItem('radio_activa') === 'true';
+
+            if (skip) {
+                indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
                 localStorage.removeItem('skip_active');
+                btnPlay.disabled = false; 
+            } else if (estabaEncendida) {
+                indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
+                btnPlay.disabled = true;
+                btnPlay.innerText = "📻 EN EMISIÓN...";
+                reproducirSiguiente(false);
+            } else {
+                btnPlay.disabled = false;
             }
 
-            status.innerText = "Señal sintonizada.";
-            btnPlay.disabled = false;
+            status.innerText = estabaEncendida ? status.innerText : "Señal sintonizada.";
             
             if (localStorage.getItem('offline_pref') === 'true') {
                 document.getElementById('toggleOffline').checked = true;
@@ -211,7 +223,10 @@
         document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${d.toLocaleTimeString()}`;
     }, 1000);
 
-    player.onended = () => reproducirSiguiente();
+    player.onended = () => {
+        localStorage.removeItem('segundo_exacto');
+        reproducirSiguiente(true);
+    };
     window.onload = cargarTodo;
     function ajustarVolumenManual(v) { player.volume = v; }
 </script>
