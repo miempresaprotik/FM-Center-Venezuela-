@@ -106,10 +106,9 @@
 
     let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
     let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false;
-    let wakeLock = null; // Variable para mantener pantalla activa
+    let wakeLock = null; 
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
-    // --- FUNCIÓN PARA MANTENER LA PANTALLA ENCENDIDA ---
     async function activarMantenerEncendido() {
         try {
             if ('wakeLock' in navigator) {
@@ -243,7 +242,16 @@
             indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
         }
 
-        const track = listaMaestra[indiceActual];
+        let track = listaMaestra[indiceActual];
+        
+        // --- CORRECCIÓN PARA MODO SIN CONEXIÓN ---
+        if (!navigator.onLine) {
+            const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
+            if (tanqueOffline.length > 0) {
+                track = tanqueOffline[indiceActual % tanqueOffline.length];
+            }
+        }
+
         if (!track) return;
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
         status.innerText = "Sonando:\n" + nombre;
@@ -270,7 +278,7 @@
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
-        activarMantenerEncendido(); // Activa el Wake Lock al iniciar
+        activarMantenerEncendido();
         reproducirSiguiente(false);
     }
 
@@ -324,7 +332,6 @@
         }
     }, 1000);
 
-    // Re-activar Wake Lock si el usuario minimiza y vuelve a la app
     document.addEventListener('visibilitychange', async () => {
         if (wakeLock !== null && document.visibilityState === 'visible') {
             activarMantenerEncendido();
