@@ -86,17 +86,15 @@
         }
     }
 
-    // --- LÓGICA DE PERSISTENCIA Y TIEMPO REAL ---
     function guardarEstado() {
-        if (!player.paused) {
-            localStorage.setItem('radio_activa', 'true');
+        if (!player.paused && player.currentTime > 0) {
             localStorage.setItem('ultimo_indice', indiceActual - 1);
             localStorage.setItem('segundo_exacto', player.currentTime);
             localStorage.setItem('timestamp_salida', Date.now());
+            localStorage.setItem('nombre_pista', status.innerText);
         }
     }
 
-    // Guardar estado cada segundo automáticamente
     player.ontimeupdate = () => guardarEstado();
 
     async function gestionarModoReserva(activado) {
@@ -127,9 +125,9 @@
     }
 
     function sincronizarPagina() {
-        // Al sintonizar, forzamos SALTO y limpiamos el tiempo guardado
         localStorage.setItem('skip_active', 'true');
         localStorage.removeItem('segundo_exacto');
+        localStorage.removeItem('nombre_pista');
         localStorage.setItem('lastSync', Date.now());
         location.reload();
     }
@@ -150,27 +148,35 @@
         }
     }
 
-    async function reproducirSiguiente(desdeCero = false) {
+    async function reproducirSiguiente(forzarNueva = false) {
         if (indiceActual >= listaMaestra.length) indiceActual = 0;
-        const track = listaMaestra[indiceActual];
+        
+        const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
+        const ahora = Date.now();
+        const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
 
+        // Si NO forzamos nueva Y pasó menos de 3 minutos (180000 ms), intentamos retomar
+        if (!forzarNueva && tsSalida && tiempoFuera < 180000) {
+            indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
+        } else if (forzarNueva || tiempoFuera >= 180000) {
+            // Si pasó más de 3 min o es sintonización, avanzamos el índice
+            if (tsSalida) indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
+            localStorage.removeItem('segundo_exacto'); // Limpiamos tiempo para que empiece de 0
+        }
+
+        const track = listaMaestra[indiceActual];
         let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
         status.innerText = "Sonando:\n" + nombre;
         player.src = track.download_url;
 
-        // Si es una recarga, aplicamos el adelanto de tiempo
-        if (!desdeCero) {
-            const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
-            const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
-            if (segGuardado && tsSalida) {
-                const desfase = (Date.now() - tsSalida) / 1000;
-                player.currentTime = segGuardado + desfase;
-            }
+        // Solo aplicamos desfase si no es una pista forzada desde cero
+        const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
+        if (!forzarNueva && segGuardado && tiempoFuera < 180000) {
+            player.currentTime = segGuardado + (tiempoFuera / 1000);
         }
 
         indiceActual++;
         player.play().catch(() => {
-            // Si el navegador bloquea el auto-play, mostramos el botón
             btnPlay.disabled = false;
             btnPlay.innerText = "▶ REPRODUCIR";
         });
@@ -181,7 +187,9 @@
         btnPlay.disabled = true;
         btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
-        reproducirSiguiente(true);
+        // Al darle al botón, llamamos a la función SIN forzar una nueva,
+        // para que ella misma decida si retoma o salta según el tiempo.
+        reproducirSiguiente(false);
     }
 
     async function cargarTodo() {
@@ -195,21 +203,23 @@
         if(listaMaestra.length > 0) {
             const skip = localStorage.getItem('skip_active') === 'true';
             const estabaEncendida = localStorage.getItem('radio_activa') === 'true';
+            const nombreGuardado = localStorage.getItem('nombre_pista');
 
             if (skip) {
+                // Si viene de sintonizar, preparamos la siguiente
                 indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
                 localStorage.removeItem('skip_active');
-                btnPlay.disabled = false; 
+                status.innerText = "Señal sintonizada.";
             } else if (estabaEncendida) {
+                // Si solo refrescó, mostramos el nombre que estaba sonando
+                if (nombreGuardado) status.innerText = nombreGuardado;
+                // Dejamos el índice listo para retomar
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-                btnPlay.disabled = true;
-                btnPlay.innerText = "📻 EN EMISIÓN...";
-                reproducirSiguiente(false);
             } else {
-                btnPlay.disabled = false;
+                status.innerText = "Señal sintonizada.";
             }
 
-            status.innerText = estabaEncendida ? status.innerText : "Señal sintonizada.";
+            btnPlay.disabled = false;
             
             if (localStorage.getItem('offline_pref') === 'true') {
                 document.getElementById('toggleOffline').checked = true;
@@ -225,6 +235,7 @@
 
     player.onended = () => {
         localStorage.removeItem('segundo_exacto');
+        localStorage.removeItem('timestamp_salida');
         reproducirSiguiente(true);
     };
     window.onload = cargarTodo;
