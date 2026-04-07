@@ -26,16 +26,18 @@
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
 
-        /* ESTILOS NUEVOS PARA EL SWITCH DE RESERVA */
+        /* ESTILOS DEL SWITCH MODO SIN CONEXIÓN */
         .reserva-cont { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-        .reserva-label { font-size: 9px; color: #aaa; letter-spacing: 1px; }
+        /* Texto superior: MODO SIN CONEXIÓN */
+        .reserva-label { font-size: 9px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; }
         .switch { position: relative; display: inline-block; width: 38px; height: 18px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px; border: 1px solid #fecb00; }
         .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #003da5; border-color: #fff; }
         input:checked + .slider:before { transform: translateX(18px); }
-        #status-tanque { font-size: 9px; color: #fecb00; font-weight: bold; display: none; text-shadow: 1px 1px 1px #000; }
+        /* Texto inferior: LISTA DISPONIBLE */
+        #status-tanque { font-size: 9px; color: #fecb00; font-weight: bold; display: none; text-shadow: 1px 1px 1px #000; text-transform: uppercase;}
     </style>
 </head>
 <body>
@@ -49,12 +51,12 @@
     <button id="btnSync" class="btn-sync" onclick="sincronizarPagina()">🔄 SINCRONIZAR SEÑAL</button>
 
     <div class="reserva-cont">
-        <span class="reserva-label">MODO TANQUE DE RESERVA</span>
+        <span class="reserva-label">MODO SIN CONEXIÓN</span>
         <label class="switch">
             <input type="checkbox" id="toggleOffline" onchange="gestionarModoReserva(this.checked)">
             <span class="slider"></span>
         </label>
-        <div id="status-tanque">⛽ TANQUE: <span id="cant-reserva">0</span>/15</div>
+        <div id="status-tanque">⛽ LISTA DISPONIBLE: <span id="cant-reserva">0</span>/15</div>
     </div>
 
     <div class="vol-container">
@@ -120,7 +122,7 @@
     const btnSync = document.getElementById('btnSync');
     const relojMini = document.getElementById('reloj-mini');
 
-    // LOGICA DE TANQUE DE RESERVA
+    // LOGICA DE TANQUE DE RESERVA (NOMBRE DE FUNCIÓN MANTENIDO POR COMPATIBILIDAD)
     async function gestionarModoReserva(activado) {
         modoReservaActivo = activado;
         const divStatus = document.getElementById('status-tanque');
