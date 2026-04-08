@@ -244,7 +244,6 @@
 
         let track = listaMaestra[indiceActual];
         
-        // --- LÓGICA OFFLINE AJUSTADA ---
         if (!navigator.onLine) {
             status.innerText = "Sintonía en reserva:\nEn espera de conexión";
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
@@ -294,9 +293,6 @@
             listaMaestra = [];
             resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
             
-            // --- LÍNEA DE ALEATORIEDAD SOLICITADA ---
-            listaMaestra.sort(() => Math.random() - 0.5);
-
             if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
