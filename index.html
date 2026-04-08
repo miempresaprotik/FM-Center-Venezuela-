@@ -294,7 +294,7 @@
             listaMaestra = [];
             resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
             
-            // --- ÚNICA LÍNEA AGREGADA: ALEATORIEDAD ---
+            // --- LÍNEA DE ALEATORIEDAD SOLICITADA ---
             listaMaestra.sort(() => Math.random() - 0.5);
 
             if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
@@ -355,6 +355,7 @@
             if (inv.length > 0) {
                 inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
+                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
