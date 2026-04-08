@@ -244,7 +244,6 @@
 
         let track = listaMaestra[indiceActual];
         
-        // --- LÓGICA OFFLINE AJUSTADA ---
         if (!navigator.onLine) {
             status.innerText = "Sintonía en reserva:\nEn espera de conexión";
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
@@ -293,6 +292,10 @@
             const resultados = await Promise.all(promesas);
             listaMaestra = [];
             resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
+            
+            // --- PUNTO PRECISO: MEZCLA ALEATORIA PARA EVITAR REPETICIÓN ---
+            listaMaestra.sort(() => Math.random() - 0.5); 
+
             if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
@@ -351,7 +354,6 @@
             if (inv.length > 0) {
                 inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
-                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
