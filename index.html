@@ -25,6 +25,9 @@
         .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
+        
+        /* TU VERSION DISCRETA */
+        #ver-tag { font-size: 9px; color: #444; margin-top: 4px; letter-spacing: 1px; font-weight: bold; }
 
         .reserva-cont { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
         .reserva-label { font-size: 9px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; }
@@ -61,6 +64,7 @@
         <input type="range" id="volumen" min="0" max="1" step="0.1" value="0.8" oninput="ajustarVolumenManual(this.value)">
     </div>
     <div id="reloj-mini">Cargando sistema...</div>
+    <div id="ver-tag">V.FM 000</div>
     <audio id="player" crossorigin="anonymous"></audio>
 </div>
 
@@ -230,10 +234,12 @@
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
         const skip = localStorage.getItem('skip_active') === 'true';
 
+        // CORRECCIÓN: Si forzarNueva es true (terminó canción), NO aplicamos tiempoFuera
         if (skip || forzarNueva || tiempoFuera >= 180000) {
-            if (localStorage.getItem('ultimo_indice') !== null) {
+            if (localStorage.getItem('ultimo_indice') !== null && !forzarNueva) {
                 indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
             }
+            // Si es forzada (onEnded), solo usamos el indiceActual que ya incrementó
             if (indiceActual >= listaMaestra.length) indiceActual = 0;
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
@@ -248,9 +254,7 @@
         if (!navigator.onLine) {
             status.innerText = "Sintonía en reserva:\nEn espera de conexión";
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
-            if (tanqueOffline.length > 0) {
-                track = tanqueOffline[0]; 
-            }
+            if (tanqueOffline.length > 0) { track = tanqueOffline[0]; }
         } else {
             if (!track) return;
             let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
@@ -261,6 +265,7 @@
         player.src = track.download_url;
         player.load(); 
 
+        // Solo retomar segundos si NO es una transición natural (terminó canción)
         if (navigator.onLine && !skip && !forzarNueva) {
             const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
             if (segGuardado && tiempoFuera < 180000) {
@@ -289,11 +294,20 @@
         checkSyncCooldown();
         
         try {
-            // ÚNICO CAMBIO ESENCIAL: Se agrega ?t=${Date.now()} para evitar caché vieja
-            let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}?t=${Date.now()}`).then(r => r.json()).catch(() => []));
+            let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}`).then(r => r.json()).catch(() => []));
             const resultados = await Promise.all(promesas);
             listaMaestra = [];
-            resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
+            let exitos = 0;
+            
+            resultados.forEach(data => { 
+                if(Array.isArray(data) && data.length > 0) {
+                    listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3')));
+                    exitos++;
+                } 
+            });
+            
+            // TAG DISCRETO: Cantidad de carpetas cargadas + Total de canciones
+            document.getElementById('ver-tag').innerText = `V.FM ${exitos}${listaMaestra.length}`;
             
             if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
@@ -353,13 +367,13 @@
             if (inv.length > 0) {
                 inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
-                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
         localStorage.removeItem('segundo_exacto');
         localStorage.removeItem('timestamp_salida');
         localStorage.removeItem('nombre_pista');
+        // Pasamos true para indicar que terminó la canción
         reproducirSiguiente(true);
     };
 
