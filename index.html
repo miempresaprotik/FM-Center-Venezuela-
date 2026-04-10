@@ -289,25 +289,13 @@
         checkSyncCooldown();
         
         try {
-            // HUELLA DIGITAL: Añadimos un timestamp a la petición para que GitHub no nos dé datos viejos.
-            const t = Date.now();
-            let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}?t=${t}`).then(r => r.json()).catch(() => []));
+            // ÚNICO CAMBIO ESENCIAL: Se agrega ?t=${Date.now()} para evitar caché vieja
+            let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}?t=${Date.now()}`).then(r => r.json()).catch(() => []));
             const resultados = await Promise.all(promesas);
-            let nuevaLista = [];
-            resultados.forEach(data => { if(Array.isArray(data)) nuevaLista.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
+            listaMaestra = [];
+            resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
             
-            // COMPARADOR AUTOMÁTICO: Si la cantidad de canciones cambió, limpiamos todo rastro viejo.
-            const listaGuardada = JSON.parse(localStorage.getItem('resp_maestro') || "[]");
-            if(nuevaLista.length > 0 && nuevaLista.length !== listaGuardada.length) {
-                console.log("Actualización detectada.");
-                localStorage.removeItem('ultimo_indice'); 
-                localStorage.removeItem('segundo_exacto');
-                if ('caches' in window) await caches.delete('fm-center-v1'); // Limpiamos el tanque viejo
-                localStorage.setItem('resp_maestro', JSON.stringify(nuevaLista));
-                listaMaestra = nuevaLista;
-            } else {
-                listaMaestra = nuevaLista.length > 0 ? nuevaLista : listaGuardada;
-            }
+            if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
         }
@@ -324,7 +312,6 @@
             } else if (estabaEncendida) {
                 if (nombreGuardado) status.innerText = nombreGuardado;
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-                if (indiceActual >= listaMaestra.length) indiceActual = 0;
             } else {
                 status.innerText = "Señal sintonizada.";
             }
@@ -356,10 +343,8 @@
     });
 
     player.onerror = () => {
-        // Si hay error de reproducción, forzamos recarga de la lista para obtener links nuevos
         localStorage.removeItem('segundo_exacto');
-        localStorage.removeItem('resp_maestro'); // Borramos la lista local para forzar a cargarTodo a pedir una nueva
-        cargarTodo().then(() => reproducirSiguiente(true));
+        reproducirSiguiente(true);
     };
 
     player.onended = () => {
@@ -368,6 +353,7 @@
             if (inv.length > 0) {
                 inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
+                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
