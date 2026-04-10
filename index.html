@@ -289,12 +289,24 @@
         checkSyncCooldown();
         
         try {
-            let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}`).then(r => r.json()).catch(() => []));
+            const cacheBuster = Date.now();
+            let promesas = bibliotecas.map(c => 
+                fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}?t=${cacheBuster}`)
+                .then(r => r.json())
+                .catch(() => [])
+            );
             const resultados = await Promise.all(promesas);
-            listaMaestra = [];
-            resultados.forEach(data => { if(Array.isArray(data)) listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
+            let nuevaLista = [];
+            resultados.forEach(data => { if(Array.isArray(data)) nuevaLista.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3'))); });
             
-            if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
+            const listaGuardada = JSON.parse(localStorage.getItem('resp_maestro') || "[]");
+            if(nuevaLista.length > 0 && nuevaLista.length !== listaGuardada.length) {
+                localStorage.removeItem('ultimo_indice'); 
+                localStorage.setItem('resp_maestro', JSON.stringify(nuevaLista));
+                listaMaestra = nuevaLista;
+            } else {
+                listaMaestra = nuevaLista.length > 0 ? nuevaLista : listaGuardada;
+            }
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
         }
@@ -311,6 +323,7 @@
             } else if (estabaEncendida) {
                 if (nombreGuardado) status.innerText = nombreGuardado;
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
+                if (indiceActual >= listaMaestra.length) indiceActual = 0;
             } else {
                 status.innerText = "Señal sintonizada.";
             }
@@ -352,7 +365,6 @@
             if (inv.length > 0) {
                 inv.shift(); 
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
-                // Actualización inmediata del contador visual
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
         }
