@@ -26,7 +26,6 @@
         input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
         #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
         
-        /* TU VERSION DISCRETA */
         #ver-tag { font-size: 9px; color: #444; margin-top: 4px; letter-spacing: 1px; font-weight: bold; }
 
         .reserva-cont { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
@@ -83,30 +82,9 @@
     ];
 
     const saludos = {
-        min15: [
-            "Estás en sintonía de FM Center, la casa de la música llanera en Venezuela.",
-            "Disfruta de la mejor Música Llanera, aquí en FM Center Venezuela, Música, Llano y Folklor.",
-            "Sintonizas FM Center Venezuela Llaneras, Lo mejor de Nuestra Música Llanera.",
-            "La señal que recorre el llano entero, transmitiendo para ti en FM Center.",
-            "Siente el zapateo y el rugir del arpa en la emisora líder, FM Center Venezuela.",
-            "Desde el corazón de Venezuela, llevamos nuestra esencia llanera a tu dispositivo."
-        ],
-        min30: [
-            "No te apartes de nuestra señal, seguimos con lo mejor del arpa, cuatro y maracas.",
-            "En cualquier rincón de Venezuela, FM Center es tu compañía llanera.",
-            "En cualquier rincón de Venezuela, FM Center Venezuela, es tu emisora de Música Llanera.",
-            "Donde suene un cuatro, ahí está FM Center acompañando tu jornada.",
-            "Canto, verso y copla en una sola señal. Somos FM Center, puro sentimiento.",
-            "Tu conexión directa con nuestras raíces llaneras sigue aquí, en FM Center."
-        ],
-        min45: [
-            "FM Center Venezuela Llaneras, conectando nuestro folklore, pura Música.",
-            "¡Arpa, maestro! Seguimos disfrutando de la verdadera esencia llanera.",
-            "Reporta tu sintonía, estamos escuchando lo mejor del folklor, Esto es FM Center Venezuela Llaneras.",
-            "El folklore no descansa y nosotros tampoco. FM Center, siempre llanera.",
-            "Orgullo venezolano en cada nota musical. Sintonizas FM Center Llaneras.",
-            "Llevamos el aroma de la sabana a tus oídos. FM Center, folklore sin fronteras."
-        ]
+        min15: ["Estás en sintonía de FM Center...", "Disfruta de la mejor Música Llanera...", "Sintonizas FM Center Venezuela Llaneras...", "La señal que recorre el llano entero...", "Siente el zapateo y el rugir del arpa...", "Desde el corazón de Venezuela..."],
+        min30: ["No te apartes de nuestra señal...", "En cualquier rincón de Venezuela...", "En cualquier rincón de Venezuela...", "Donde suene un cuatro...", "Canto, verso y copla...", "Tu conexión directa..."],
+        min45: ["FM Center Venezuela Llaneras...", "¡Arpa, maestro!...", "Reporta tu sintonía...", "El folklore no descansa...", "Orgullo venezolano...", "Llevamos el aroma..."]
     };
 
     let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
@@ -115,11 +93,7 @@
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
     async function activarMantenerEncendido() {
-        try {
-            if ('wakeLock' in navigator) {
-                wakeLock = await navigator.wakeLock.request('screen');
-            }
-        } catch (err) {}
+        try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
     }
 
     function hablar(mensaje, animado = false) {
@@ -138,23 +112,18 @@
 
     function anunciarHora() {
         const ahora = new Date();
-        const hh = ahora.getHours();
-        const hora12 = hh % 12 || 12;
-        const parteDia = hh >= 12 ? 'de la tarde' : 'de la mañana';
+        const hh = ahora.getHours(), hora12 = hh % 12 || 12, parteDia = hh >= 12 ? 'de la tarde' : 'de la mañana';
         hablar(`En FM Center, son las ${hora12}, ${hora12} ${parteDia}`);
     }
 
     function lanzarAnuncioMotivador(minuto) {
-        let clave = `min${minuto}`;
-        let lista = saludos[clave];
+        let clave = `min${minuto}`, lista = saludos[clave];
         hablar(lista[indicesLocucion[clave]], true);
         indicesLocucion[clave] = (indicesLocucion[clave] + 1) % lista.length;
     }
 
     function idSilencioso() {
-        if (!localStorage.getItem('fm_v_id')) {
-            localStorage.setItem('fm_v_id', 'VIS-' + Math.floor(Math.random() * 90000 + 10000));
-        }
+        if (!localStorage.getItem('fm_v_id')) localStorage.setItem('fm_v_id', 'VIS-' + Math.floor(Math.random() * 90000 + 10000));
     }
 
     function guardarEstado() {
@@ -172,8 +141,17 @@
         modoReservaActivo = activado;
         localStorage.setItem('offline_pref', activado);
         document.getElementById('status-tanque').style.display = activado ? "block" : "none";
-        if (activado) llenarTanque();
-        else if ('caches' in window) await caches.delete('fm-center-v1');
+        
+        if (activado) {
+            llenarTanque();
+        } else {
+            // AJUSTE: Borrado físico y real de la caché al desactivar
+            if ('caches' in window) {
+                await caches.delete('fm-center-v1');
+                localStorage.removeItem('inv_tanque');
+                document.getElementById('cant-reserva').innerText = "0";
+            }
+        }
     }
 
     async function llenarTanque() {
@@ -182,8 +160,7 @@
         const keys = await cache.keys();
         document.getElementById('cant-reserva').innerText = keys.length;
         if (keys.length < 20) {
-            let p = indiceActual;
-            let d = 0;
+            let p = indiceActual, d = 0;
             let invOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
             while (d < (20 - keys.length) && p < listaMaestra.length) {
                 let t = listaMaestra[p];
@@ -228,62 +205,48 @@
 
     async function reproducirSiguiente(forzarNueva = false) {
         if (indiceActual >= listaMaestra.length) indiceActual = 0;
-        
-        const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
-        const ahora = Date.now();
+        const tsSalida = parseInt(localStorage.getItem('timestamp_salida')), ahora = Date.now();
         const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
         const skip = localStorage.getItem('skip_active') === 'true';
 
-        // CORRECCIÓN: Si forzarNueva es true (terminó canción), NO aplicamos tiempoFuera
         if (skip || forzarNueva || tiempoFuera >= 180000) {
             if (localStorage.getItem('ultimo_indice') !== null && !forzarNueva) {
                 indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
             }
-            // Si es forzada (onEnded), solo usamos el indiceActual que ya incrementó
             if (indiceActual >= listaMaestra.length) indiceActual = 0;
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
             localStorage.removeItem('nombre_pista');
-        } 
-        else if (tsSalida && tiempoFuera < 180000) {
+        } else if (tsSalida && tiempoFuera < 180000) {
             indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
         }
 
         let track = listaMaestra[indiceActual];
-        
         if (!navigator.onLine) {
             status.innerText = "Sintonía en reserva:\nEn espera de conexión";
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
-            if (tanqueOffline.length > 0) { track = tanqueOffline[0]; }
+            if (tanqueOffline.length > 0) track = tanqueOffline[0];
         } else {
             if (!track) return;
-            let nombre = track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ').replace(/\(MP3_.*\)/gi, '');
-            status.innerText = "Sonando:\n" + nombre;
+            status.innerText = "Sonando:\n" + track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
         }
 
         if (!track) return;
         player.src = track.download_url;
         player.load(); 
 
-        // Solo retomar segundos si NO es una transición natural (terminó canción)
         if (navigator.onLine && !skip && !forzarNueva) {
             const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
-            if (segGuardado && tiempoFuera < 180000) {
-                player.currentTime = segGuardado + (tiempoFuera / 1000);
-            }
+            if (segGuardado && tiempoFuera < 180000) player.currentTime = segGuardado + (tiempoFuera / 1000);
         }
 
         indiceActual++;
-        player.play().catch(() => {
-            btnPlay.disabled = false;
-            btnPlay.innerText = "▶ REPRODUCIR";
-        });
+        player.play().catch(() => { btnPlay.disabled = false; btnPlay.innerText = "▶ REPRODUCIR"; });
         if (modoReservaActivo) llenarTanque();
     }
 
     function iniciarReproduccion() {
-        btnPlay.disabled = true;
-        btnPlay.innerText = "📻 EN EMISIÓN...";
+        btnPlay.disabled = true; btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
         activarMantenerEncendido();
         reproducirSiguiente(false);
@@ -293,22 +256,26 @@
         idSilencioso();
         checkSyncCooldown();
         
+        // AJUSTE: Limpieza automática de 48 horas
+        const ultimaVez = localStorage.getItem('timestamp_salida');
+        if (ultimaVez && (Date.now() - parseInt(ultimaVez)) > 172800000) {
+            localStorage.clear();
+            if ('caches' in window) await caches.delete('fm-center-v1');
+            idSilencioso();
+        }
+
         try {
             let promesas = bibliotecas.map(c => fetch(`https://api.github.com/repos/${c.usuario}/${c.repo}/contents/${c.carpeta}`).then(r => r.json()).catch(() => []));
             const resultados = await Promise.all(promesas);
             listaMaestra = [];
             let exitos = 0;
-            
             resultados.forEach(data => { 
                 if(Array.isArray(data) && data.length > 0) {
                     listaMaestra.push(...data.filter(f => f.name.toLowerCase().endsWith('.mp3')));
                     exitos++;
                 } 
             });
-            
-            // TAG DISCRETO: Cantidad de carpetas cargadas + Total de canciones
             document.getElementById('ver-tag').innerText = `V.FM ${exitos}${listaMaestra.length}`;
-            
             if(listaMaestra.length > 0) localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
@@ -317,19 +284,13 @@
         if(listaMaestra.length === 0) listaMaestra = JSON.parse(localStorage.getItem('resp_maestro') || "[]");
 
         if(listaMaestra.length > 0) {
-            const skip = localStorage.getItem('skip_active') === 'true';
-            const estabaEncendida = localStorage.getItem('radio_activa') === 'true';
-            const nombreGuardado = localStorage.getItem('nombre_pista');
-
-            if (skip) {
-                status.innerText = "Saltando a nueva señal...";
-            } else if (estabaEncendida) {
-                if (nombreGuardado) status.innerText = nombreGuardado;
+            const skip = localStorage.getItem('skip_active') === 'true', estabaEncendida = localStorage.getItem('radio_activa') === 'true';
+            if (skip) status.innerText = "Saltando a nueva señal...";
+            else if (estabaEncendida) {
+                const nombreG = localStorage.getItem('nombre_pista');
+                if (nombreG) status.innerText = nombreG;
                 indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-            } else {
-                status.innerText = "Señal sintonizada.";
-            }
-
+            } else status.innerText = "Señal sintonizada.";
             btnPlay.disabled = false;
             if (localStorage.getItem('offline_pref') === 'true') {
                 document.getElementById('toggleOffline').checked = true;
@@ -341,9 +302,8 @@
     setInterval(() => {
         const ahora = new Date();
         const hh = ahora.getHours(), mm = ahora.getMinutes(), ss = ahora.getSeconds();
-        const displayH = hh % 12 || 12, displayM = mm < 10 ? '0'+mm : mm, displayS = ss < 10 ? '0'+ss : ss;
-        document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${displayH}:${displayM}:${displayS} ${hh >= 12 ? 'PM' : 'AM'}`;
-        
+        const dH = hh % 12 || 12, dM = mm < 10 ? '0'+mm : mm, dS = ss < 10 ? '0'+ss : ss;
+        document.getElementById('reloj-mini').innerText = `SISTEMA ACTIVO: ${dH}:${dM}:${dS} ${hh >= 12 ? 'PM' : 'AM'}`;
         if (ss === 0 && localStorage.getItem('radio_activa') === 'true') {
             if (mm === 0) anunciarHora();
             else if ([15, 30, 45].includes(mm)) lanzarAnuncioMotivador(mm);
@@ -351,21 +311,21 @@
     }, 1000);
 
     document.addEventListener('visibilitychange', async () => {
-        if (wakeLock !== null && document.visibilityState === 'visible') {
-            activarMantenerEncendido();
-        }
+        if (wakeLock !== null && document.visibilityState === 'visible') activarMantenerEncendido();
     });
 
-    player.onerror = () => {
-        localStorage.removeItem('segundo_exacto');
-        reproducirSiguiente(true);
-    };
+    player.onerror = () => { localStorage.removeItem('segundo_exacto'); reproducirSiguiente(true); };
 
-    player.onended = () => {
+    player.onended = async () => {
+        // AJUSTE: Borrado físico del archivo escuchado en modo offline
         if (!navigator.onLine) {
             let inv = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
             if (inv.length > 0) {
-                inv.shift(); 
+                const trackABorrar = inv.shift(); 
+                if ('caches' in window) {
+                    const cache = await caches.open('fm-center-v1');
+                    await cache.delete(trackABorrar.download_url); // Borrado físico real
+                }
                 localStorage.setItem('inv_tanque', JSON.stringify(inv));
                 document.getElementById('cant-reserva').innerText = inv.length;
             }
@@ -373,7 +333,6 @@
         localStorage.removeItem('segundo_exacto');
         localStorage.removeItem('timestamp_salida');
         localStorage.removeItem('nombre_pista');
-        // Pasamos true para indicar que terminó la canción
         reproducirSiguiente(true);
     };
 
