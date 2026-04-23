@@ -11,29 +11,42 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Solo interceptamos las peticiones de los archivos MP3
-    if (url.pathname.endsWith('.mp3')) {
+    // Interceptamos las peticiones de los archivos MP3
+    if (url.pathname.endsWith('.mp3') || event.request.url.includes('.mp3')) {
         event.respondWith(
             caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
-                // 1. Si la canción está en el "Tanque" (Modo Offline o ya descargada)
+                // 1. Si la canción pedida ESTÁ en el tanque (Modo Offline o ya descargada)
                 if (cachedResponse) {
-                    // Verificamos si el celular está pidiendo el audio por pedacitos (Range Request)
+                    // Verificamos si el celular está pidiendo en pedacitos
                     if (event.request.headers.has('range')) {
                         return manejarPeticionRango(event.request, cachedResponse);
                     }
-                    // Si es una petición normal, entregamos el archivo completo
                     return cachedResponse;
                 }
 
-                // 2. Si la canción NO está en la caché, vamos a internet (Modo Online normal)
+                // 2. Si NO está en caché, intentamos descargarla de internet (Modo Online)
                 return fetch(event.request).then((networkResponse) => {
-                    // Si la canción fue borrada o hay error 404, la dejamos pasar 
-                    // para que el reproductor (index.html) salte a la siguiente
                     return networkResponse;
-                }).catch((error) => {
-                    // Si no hay internet y no está en caché, fallamos a propósito
-                    // Esto activa la "Inteligencia" de tu index.html para buscar la siguiente en el tanque
-                    throw error;
+                }).catch(() => {
+                    // 3. 🚨 EMERGENCIA: Falló el internet (Falso Internet / Caída de red)
+                    // AQUÍ VOLVEMOS A TU LÓGICA ORIGINAL: Buscamos CUALQUIERA del tanque
+                    return caches.open(CACHE_NAME).then((cache) => {
+                        return cache.keys().then((keys) => {
+                            if (keys.length > 0) {
+                                // Elegimos una canción de reserva al azar
+                                return cache.match(keys[Math.floor(Math.random() * keys.length)]).then(randomResponse => {
+                                    // IMPORTANTE: Le aplicamos el soporte para móviles a esta canción de reserva
+                                    if (event.request.headers.has('range')) {
+                                        return manejarPeticionRango(event.request, randomResponse);
+                                    }
+                                    return randomResponse;
+                                });
+                            } else {
+                                // Si el tanque también está vacío, fallamos para que el frontend decida
+                                throw new Error("Sin internet y tanque vacío");
+                            }
+                        });
+                    });
                 });
             })
         );
