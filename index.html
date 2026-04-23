@@ -72,9 +72,7 @@
         min45: ["FM Center Venezuela Llaneras...", "¡Arpa, maestro!...", "Reporta tu sintonía...", "El folklore no descansa..."]
     };
 
-    // VARIABLES GLOBALES (Se añadió errorTimeout para control estricto de errores)
-    let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
-    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false, wakeLock = null, errorTimeout = null; 
+    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false, errorTimeout = null; 
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
     function hablar(mensaje, animado = false) {
@@ -90,82 +88,7 @@
         window.speechSynthesis.speak(speech);
     }
 
-    player.onloadedmetadata = () => {
-        const skip = localStorage.getItem('skip_active') === 'true';
-        if (navigator.onLine && !skip) {
-            const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
-            const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
-            const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
-            if (segGuardado && tiempoFuera < 180000) {
-                const nuevoTiempo = segGuardado + (tiempoFuera / 1000);
-                if (nuevoTiempo >= player.duration) {
-                    reproducirSiguiente(true);
-                } else {
-                    player.currentTime = nuevoTiempo;
-                }
-            }
-        }
-    };
-
-    async function reproducirSiguiente(forzarNueva = false) {
-        if (listaMaestra.length === 0) return;
-        
-        // 🛑 ESCUDO 1: Matamos cualquier error fantasma pendiente
-        clearTimeout(errorTimeout);
-
-        const skip = localStorage.getItem('skip_active') === 'true';
-        const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
-        const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
-
-        if (skip || forzarNueva || tiempoFuera >= 180000) {
-            // 🛑 ESCUDO 2: Restaurado el salto real de la canción al Sincronizar
-            if (localStorage.getItem('ultimo_indice') !== null && !forzarNueva) {
-                indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
-            }
-            localStorage.removeItem('skip_active');
-            localStorage.removeItem('segundo_exacto');
-        } else if (tsSalida && tiempoFuera < 180000) {
-            indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
-        }
-
-        if (indiceActual >= listaMaestra.length) indiceActual = 0;
-
-        let track = listaMaestra[indiceActual];
-        if (!navigator.onLine) {
-            const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
-            if (tanqueOffline.length > 0) {
-                track = tanqueOffline[0];
-                status.innerText = "Modo Reserva:\n" + track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
-            } else {
-                status.innerText = "Sin conexión y sin reserva.";
-                return;
-            }
-        } else {
-            status.innerText = "Sonando:\n" + track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
-        }
-
-        player.src = track.download_url;
-        player.load(); // Fuerza al reproductor a limpiar la canción anterior
-        
-        localStorage.setItem('ultimo_indice', indiceActual);
-        indiceActual++;
-        
-        // 🛑 ESCUDO 3: Control estricto de la promesa Play
-        player.play().then(() => {
-            btnPlay.disabled = true;
-            btnPlay.innerText = "📻 EN EMISIÓN...";
-        }).catch((err) => { 
-            // Si el error fue por cancelar (AbortError), no hacemos nada, dejamos que la nueva pista tome el control.
-            // Solo reactivamos el botón si fue otro tipo de error grave.
-            if (err.name !== 'AbortError') {
-                btnPlay.disabled = false; 
-                btnPlay.innerText = "▶ REPRODUCIR"; 
-            }
-        });
-
-        if (modoReservaActivo) llenarTanque();
-    }
-
+    // CARGA INICIAL
     async function cargarTodo() {
         checkSyncCooldown();
         const ultimaVez = localStorage.getItem('timestamp_salida');
@@ -192,14 +115,106 @@
         }
     }
 
+    // MOTOR DE REPRODUCCIÓN
+    async function reproducirSiguiente(forzarNueva = false) {
+        if (listaMaestra.length === 0) return;
+        clearTimeout(errorTimeout);
+
+        if (!forzarNueva) {
+            const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
+            const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
+            
+            if (tsSalida && tiempoFuera < 180000) {
+                indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
+            } else {
+                let saved = parseInt(localStorage.getItem('ultimo_indice'));
+                if (!isNaN(saved)) indiceActual = saved + 1;
+                localStorage.removeItem('segundo_exacto');
+            }
+        } else {
+            localStorage.removeItem('segundo_exacto');
+            localStorage.removeItem('timestamp_salida');
+        }
+
+        if (indiceActual >= listaMaestra.length) indiceActual = 0;
+
+        let track = listaMaestra[indiceActual];
+        
+        if (!navigator.onLine) {
+            const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
+            if (tanqueOffline.length > 0) {
+                track = tanqueOffline[0];
+                status.innerText = "Modo Reserva:\n" + track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
+            } else {
+                status.innerText = "Sin conexión y sin reserva.";
+                return;
+            }
+        } else {
+            status.innerText = "Sonando:\n" + track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
+        }
+
+        player.src = track.download_url;
+        player.load(); 
+        
+        localStorage.setItem('ultimo_indice', indiceActual);
+        indiceActual++; 
+
+        player.play().then(() => {
+            btnPlay.disabled = true;
+            btnPlay.innerText = "📻 EN EMISIÓN...";
+        }).catch((err) => { 
+            if (err.name !== 'AbortError') {
+                btnPlay.disabled = false; 
+                btnPlay.innerText = "▶ REPRODUCIR"; 
+            }
+        });
+
+        if (modoReservaActivo) llenarTanque();
+    }
+
+    // BOTÓN DE PLAY MANUAL
     function iniciarReproduccion() {
-        // Desactivamos inmediatamente para evitar el doble clic del usuario
         btnPlay.disabled = true; 
         btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
         if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
         reproducirSiguiente(false);
     }
+
+    // BOTÓN DE SINCRONIZAR (Con 3 segundos de espera y visual de sintonización)
+    function sincronizarPagina() {
+        localStorage.setItem('lastSync', Date.now());
+        checkSyncCooldown();
+        
+        // Solo aplica la espera y salta la canción si la radio ya está sonando
+        if (btnPlay.disabled === true) {
+            player.pause(); // Hacemos silencio simulando la búsqueda
+            status.innerText = "Sintonizando nueva señal...";
+            
+            // Esperamos 3 segundos antes de disparar la nueva pista
+            setTimeout(() => {
+                reproducirSiguiente(true);
+            }, 3000);
+        }
+    }
+
+    // EVENTOS DEL REPRODUCTOR
+    player.onloadedmetadata = () => {
+        if (navigator.onLine) {
+            const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
+            const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
+            const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
+            
+            if (segGuardado && tiempoFuera > 0 && tiempoFuera < 180000) {
+                const nuevoTiempo = segGuardado + (tiempoFuera / 1000);
+                if (nuevoTiempo >= player.duration) {
+                    reproducirSiguiente(true);
+                } else {
+                    player.currentTime = nuevoTiempo;
+                }
+            }
+        }
+    };
 
     player.ontimeupdate = () => {
         localStorage.setItem('segundo_exacto', player.currentTime);
@@ -223,12 +238,12 @@
         reproducirSiguiente(true);
     };
 
-    // 🛑 ESCUDO 1.1: Evita que múltiples errores se acumulen
     player.onerror = () => { 
         clearTimeout(errorTimeout);
         errorTimeout = setTimeout(() => { reproducirSiguiente(true); }, 2000); 
     };
 
+    // MODO OFFLINE Y TANQUE
     async function gestionarModoReserva(activado) {
         modoReservaActivo = activado;
         localStorage.setItem('offline_pref', activado);
@@ -260,15 +275,7 @@
         document.getElementById('cant-reserva').innerText = invOffline.length;
     }
 
-    function sincronizarPagina() {
-        localStorage.setItem('skip_active', 'true');
-        localStorage.removeItem('segundo_exacto');
-        localStorage.removeItem('timestamp_salida');
-        localStorage.removeItem('nombre_pista');
-        localStorage.setItem('lastSync', Date.now());
-        location.reload();
-    }
-
+    // TEMPORIZADORES Y RELOJ
     function checkSyncCooldown() {
         const lastSync = localStorage.getItem('lastSync');
         if (lastSync) {
