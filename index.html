@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FM Center - Venezuela Llaneras</title>
     <style>
-        /* TU DISEÑO ORIGINAL SIN CAMBIOS */
+        /* DISEÑO ORIGINAL */
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
         .box { 
             background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
@@ -76,36 +76,29 @@
     let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false, wakeLock = null; 
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
-    // --- MEJORA: LOCUTOR CON SEGURO ---
     function hablar(mensaje, animado = false) {
         window.speechSynthesis.cancel(); 
         const volOriginal = volumenUsuario;
         player.volume = volOriginal * 0.15; 
-
         const speech = new SpeechSynthesisUtterance(mensaje);
         speech.lang = 'es-VE';
         speech.rate = animado ? 0.95 : 0.9;
-        
-        // Seguro de vida: si el navegador no avisa que terminó, restauramos a los 10s
         const fallback = setTimeout(() => { player.volume = volOriginal; }, 10000);
-
         speech.onend = () => { clearTimeout(fallback); player.volume = volOriginal; };
         speech.onerror = () => { clearTimeout(fallback); player.volume = volOriginal; };
         window.speechSynthesis.speak(speech);
     }
 
-    // --- MEJORA: SINCRONIZACIÓN SAGRADA ---
     player.onloadedmetadata = () => {
         const skip = localStorage.getItem('skip_active') === 'true';
         if (navigator.onLine && !skip) {
             const segGuardado = parseFloat(localStorage.getItem('segundo_exacto'));
             const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
             const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
-
             if (segGuardado && tiempoFuera < 180000) {
                 const nuevoTiempo = segGuardado + (tiempoFuera / 1000);
                 if (nuevoTiempo >= player.duration) {
-                    reproducirSiguiente(true); // La canción ya terminó, salta
+                    reproducirSiguiente(true);
                 } else {
                     player.currentTime = nuevoTiempo;
                 }
@@ -121,7 +114,6 @@
         const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
         const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
 
-        // Decidir qué canción toca
         if (skip || forzarNueva || tiempoFuera >= 180000) {
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
@@ -130,8 +122,6 @@
         }
 
         let track = listaMaestra[indiceActual];
-        
-        // Manejo de Modo Offline
         if (!navigator.onLine) {
             const tanqueOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
             if (tanqueOffline.length > 0) {
@@ -148,16 +138,10 @@
         player.src = track.download_url;
         localStorage.setItem('ultimo_indice', indiceActual);
         indiceActual++;
-        
-        player.play().catch(() => { 
-            btnPlay.disabled = false; 
-            btnPlay.innerText = "▶ REPRODUCIR"; 
-        });
-
+        player.play().catch(() => { btnPlay.disabled = false; btnPlay.innerText = "▶ REPRODUCIR"; });
         if (modoReservaActivo) llenarTanque();
     }
 
-    // --- MEJORA: CARGA DESDE PLAYLIST.JSON ---
     async function cargarTodo() {
         checkSyncCooldown();
         const ultimaVez = localStorage.getItem('timestamp_salida');
@@ -166,10 +150,10 @@
         }
 
         try {
-            // Ya no usamos la API, usamos el archivo que creó el robot
             const r = await fetch('playlist.json');
             listaMaestra = await r.json();
-            document.getElementById('ver-tag').innerText = `V.FM ${listaMaestra.length}`;
+            // RESTAURACIÓN: Etiqueta con el número de bibliotecas
+            document.getElementById('ver-tag').innerText = `V.FM 6${listaMaestra.length}`;
             localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
             listaMaestra = JSON.parse(localStorage.getItem('resp_maestro') || "[]");
@@ -185,7 +169,6 @@
         }
     }
 
-    // --- MANTENEMOS EL RESTO DE TU LÓGICA DE CONTROL ---
     function iniciarReproduccion() {
         btnPlay.disabled = true; btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
@@ -215,9 +198,7 @@
         reproducirSiguiente(true);
     };
 
-    player.onerror = () => {
-        setTimeout(() => { reproducirSiguiente(true); }, 2000);
-    };
+    player.onerror = () => { setTimeout(() => { reproducirSiguiente(true); }, 2000); };
 
     async function gestionarModoReserva(activado) {
         modoReservaActivo = activado;
@@ -235,7 +216,6 @@
         if (!modoReservaActivo || !navigator.onLine) return;
         const cache = await caches.open('fm-center-v1');
         let invOffline = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
-        
         let p = indiceActual, d = 0;
         while (invOffline.length < 20 && p < listaMaestra.length) {
             let t = listaMaestra[p];
@@ -251,18 +231,29 @@
         document.getElementById('cant-reserva').innerText = invOffline.length;
     }
 
+    // RESTAURACIÓN: Sincronización con limpieza profunda y cooldown visible
     function sincronizarPagina() {
         localStorage.setItem('skip_active', 'true');
+        localStorage.removeItem('segundo_exacto');
+        localStorage.removeItem('timestamp_salida');
+        localStorage.removeItem('nombre_pista');
+        localStorage.setItem('lastSync', Date.now());
         location.reload();
     }
 
     function checkSyncCooldown() {
         const lastSync = localStorage.getItem('lastSync');
-        if (lastSync && (Date.now() - parseInt(lastSync)) < 150000) {
-            btnSync.disabled = true;
-            setTimeout(checkSyncCooldown, 1000);
-        } else {
-            btnSync.disabled = false;
+        if (lastSync) {
+            const diff = Date.now() - parseInt(lastSync);
+            if (diff < 150000) {
+                btnSync.disabled = true;
+                const restante = Math.ceil((150000 - diff) / 1000);
+                btnSync.innerText = `SINC. BLOQUEADA (${restante}s)`;
+                setTimeout(checkSyncCooldown, 1000);
+            } else {
+                btnSync.disabled = false;
+                btnSync.innerText = "🔄 SINCRONIZAR SEÑAL";
+            }
         }
     }
 
