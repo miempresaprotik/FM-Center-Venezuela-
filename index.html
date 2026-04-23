@@ -72,8 +72,9 @@
         min45: ["FM Center Venezuela Llaneras...", "¡Arpa, maestro!...", "Reporta tu sintonía...", "El folklore no descansa..."]
     };
 
+    // VARIABLES GLOBALES (Se añadió errorTimeout para control estricto de errores)
     let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
-    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false, wakeLock = null; 
+    let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false, wakeLock = null, errorTimeout = null; 
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
     function hablar(mensaje, animado = false) {
@@ -108,18 +109,26 @@
 
     async function reproducirSiguiente(forzarNueva = false) {
         if (listaMaestra.length === 0) return;
-        if (indiceActual >= listaMaestra.length) indiceActual = 0;
+        
+        // 🛑 ESCUDO 1: Matamos cualquier error fantasma pendiente
+        clearTimeout(errorTimeout);
 
         const skip = localStorage.getItem('skip_active') === 'true';
         const tsSalida = parseInt(localStorage.getItem('timestamp_salida'));
         const tiempoFuera = tsSalida ? (Date.now() - tsSalida) : 0;
 
         if (skip || forzarNueva || tiempoFuera >= 180000) {
+            // 🛑 ESCUDO 2: Restaurado el salto real de la canción al Sincronizar
+            if (localStorage.getItem('ultimo_indice') !== null && !forzarNueva) {
+                indiceActual = (parseInt(localStorage.getItem('ultimo_indice')) + 1) || 0;
+            }
             localStorage.removeItem('skip_active');
             localStorage.removeItem('segundo_exacto');
         } else if (tsSalida && tiempoFuera < 180000) {
             indiceActual = parseInt(localStorage.getItem('ultimo_indice')) || 0;
         }
+
+        if (indiceActual >= listaMaestra.length) indiceActual = 0;
 
         let track = listaMaestra[indiceActual];
         if (!navigator.onLine) {
@@ -136,9 +145,24 @@
         }
 
         player.src = track.download_url;
+        player.load(); // Fuerza al reproductor a limpiar la canción anterior
+        
         localStorage.setItem('ultimo_indice', indiceActual);
         indiceActual++;
-        player.play().catch(() => { btnPlay.disabled = false; btnPlay.innerText = "▶ REPRODUCIR"; });
+        
+        // 🛑 ESCUDO 3: Control estricto de la promesa Play
+        player.play().then(() => {
+            btnPlay.disabled = true;
+            btnPlay.innerText = "📻 EN EMISIÓN...";
+        }).catch((err) => { 
+            // Si el error fue por cancelar (AbortError), no hacemos nada, dejamos que la nueva pista tome el control.
+            // Solo reactivamos el botón si fue otro tipo de error grave.
+            if (err.name !== 'AbortError') {
+                btnPlay.disabled = false; 
+                btnPlay.innerText = "▶ REPRODUCIR"; 
+            }
+        });
+
         if (modoReservaActivo) llenarTanque();
     }
 
@@ -152,7 +176,6 @@
         try {
             const r = await fetch('playlist.json');
             listaMaestra = await r.json();
-            // RESTAURACIÓN: Etiqueta con el número de bibliotecas
             document.getElementById('ver-tag').innerText = `V.FM 6${listaMaestra.length}`;
             localStorage.setItem('resp_maestro', JSON.stringify(listaMaestra));
         } catch (e) {
@@ -170,7 +193,9 @@
     }
 
     function iniciarReproduccion() {
-        btnPlay.disabled = true; btnPlay.innerText = "📻 EN EMISIÓN...";
+        // Desactivamos inmediatamente para evitar el doble clic del usuario
+        btnPlay.disabled = true; 
+        btnPlay.innerText = "📻 EN EMISIÓN...";
         localStorage.setItem('radio_activa', 'true');
         if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
         reproducirSiguiente(false);
@@ -198,7 +223,11 @@
         reproducirSiguiente(true);
     };
 
-    player.onerror = () => { setTimeout(() => { reproducirSiguiente(true); }, 2000); };
+    // 🛑 ESCUDO 1.1: Evita que múltiples errores se acumulen
+    player.onerror = () => { 
+        clearTimeout(errorTimeout);
+        errorTimeout = setTimeout(() => { reproducirSiguiente(true); }, 2000); 
+    };
 
     async function gestionarModoReserva(activado) {
         modoReservaActivo = activado;
@@ -231,7 +260,6 @@
         document.getElementById('cant-reserva').innerText = invOffline.length;
     }
 
-    // RESTAURACIÓN: Sincronización con limpieza profunda y cooldown visible
     function sincronizarPagina() {
         localStorage.setItem('skip_active', 'true');
         localStorage.removeItem('segundo_exacto');
