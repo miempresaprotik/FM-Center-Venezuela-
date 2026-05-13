@@ -1,6 +1,13 @@
 const CACHE_NAME = 'fm-center-v1';
+const APP_CACHE = 'fm-appshell-v1'; // Cache separado para archivos de la app
 
 self.addEventListener('install', (event) => {
+    // Pre-cachear el shell de la app para sobrevivir recargas sin conexión
+    event.waitUntil(
+        caches.open(APP_CACHE)
+            .then(cache => cache.addAll(['./', './index.html', './playlist.json']))
+            .catch(() => {}) // No bloquear install si falla
+    );
     self.skipWaiting();
 });
 
@@ -10,6 +17,21 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
+
+    // Archivos propios de la app (HTML, JSON): network-first, cache como respaldo
+    if (url.origin === self.location.origin && !url.pathname.includes('.mp3')) {
+        event.respondWith(
+            fetch(event.request)
+                .then(response => {
+                    if (response.ok) {
+                        caches.open(APP_CACHE).then(c => c.put(event.request, response.clone()));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request)) // Sin red: servir desde cache
+        );
+        return;
+    }
 
     // Interceptamos las peticiones de los archivos MP3
     if (url.pathname.endsWith('.mp3') || event.request.url.includes('.mp3')) {
