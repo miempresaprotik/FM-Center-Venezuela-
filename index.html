@@ -80,7 +80,7 @@
 
     let indicesLocucion = { min15: 0, min30: 0, min45: 0 };
     let listaMaestra = [], indiceActual = 0, volumenUsuario = 0.8, modoReservaActivo = false;
-    let wakeLock = null; 
+    let wakeLock = null, contadorErrores = 0; 
     const player = document.getElementById('player'), status = document.getElementById('status'), btnPlay = document.getElementById('btnPlay'), btnSync = document.getElementById('btnSync');
 
     async function activarMantenerEncendido() {
@@ -266,7 +266,7 @@
         checkSyncCooldown();
         
         const ultimaVez = localStorage.getItem('timestamp_salida');
-        if (ultimaVez && (Date.now() - parseInt(ultimaVez)) > 172800000) {
+        if (ultimaVez && (Date.now() - parseInt(ultimaVez)) > 345600000) { // 4 días consecutivos sin escuchar
             localStorage.clear();
             if ('caches' in window) await caches.delete('fm-center-v1');
             idSilencioso();
@@ -317,7 +317,31 @@
         if (wakeLock !== null && document.visibilityState === 'visible') activarMantenerEncendido();
     });
 
-    player.onerror = () => { localStorage.removeItem('segundo_exacto'); reproducirSiguiente(true); };
+    player.onplaying = () => { contadorErrores = 0; }; // Resetea contador al reproducir exitosamente
+    player.onerror = async () => {
+        contadorErrores++;
+        localStorage.removeItem('segundo_exacto');
+        if (!navigator.onLine) {
+            // Pista del tanque falló: descartarla y avanzar (evita loop de repetición)
+            let inv = JSON.parse(localStorage.getItem('inv_tanque') || "[]");
+            if (inv.length > 0) {
+                const trackFallida = inv.shift();
+                if ('caches' in window) {
+                    const cache = await caches.open('fm-center-v1');
+                    await cache.delete(trackFallida.download_url);
+                }
+                localStorage.setItem('inv_tanque', JSON.stringify(inv));
+                document.getElementById('cant-reserva').innerText = inv.length;
+            }
+            // Demasiados errores seguidos: pausa 10s antes de reintentar
+            if (contadorErrores > 3) {
+                status.innerText = "Señal perdida...\nReintentando en 10s";
+                setTimeout(() => { contadorErrores = 0; reproducirSiguiente(true); }, 10000);
+                return;
+            }
+        }
+        reproducirSiguiente(true);
+    };
 
     player.onended = async () => {
         if (!navigator.onLine) {
@@ -340,6 +364,21 @@
 
     window.onload = cargarTodo;
     window.addEventListener('online', llenarTanque);
+
+    // PROTECCIÓN: Bloquear recarga/cierre cuando está sin conexión y reproduciendo
+    window.addEventListener('keydown', (e) => {
+        if (!navigator.onLine && btnPlay.disabled) {
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.metaKey && e.key === 'r')) {
+                e.preventDefault();
+                const msgActual = status.innerText;
+                status.innerText = "⚠️ Recarga bloqueada\nSin conexión — señal protegida";
+                setTimeout(() => { status.innerText = msgActual; }, 3000);
+            }
+        }
+    });
+    window.addEventListener('beforeunload', (e) => {
+        if (!navigator.onLine && btnPlay.disabled) { e.preventDefault(); e.returnValue = ''; }
+    });
     function ajustarVolumenManual(v) { volumenUsuario = parseFloat(v); player.volume = volumenUsuario; }
 </script>
 </body>
