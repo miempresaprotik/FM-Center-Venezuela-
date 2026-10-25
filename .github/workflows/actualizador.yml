@@ -47,8 +47,8 @@ jobs:
                       const response = await fetch(url);
                       if (response.ok) {
                           const data = await response.json();
-                          // Filtramos solo los mp3 y sacamos nombre y url
-                          const audios = data.filter(f => f.name.toLowerCase().endsWith('.mp3')).map(f => ({
+                          // Filtramos solo los mp3 reales (con tamaño > 500 KB para evitar archivos corruptos o vacíos)
+                          const audios = data.filter(f => f.name.toLowerCase().endsWith('.mp3') && (!f.size || f.size > 500000)).map(f => ({
                               name: f.name,
                               download_url: f.download_url
                           }));
