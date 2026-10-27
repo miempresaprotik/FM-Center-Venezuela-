@@ -896,18 +896,41 @@ class FMCenterApp {
         localStorage.setItem('fm_v2_last_sync', Date.now());
         this.checkSyncCooldown();
 
-        this.audio.pause();
-        if (statusEl) statusEl.innerText = "Sintonizando nueva señal en vivo...";
-
-        // Limpiar segundo guardado para comenzar limpia la nueva pista
+        // Limpiar segundo guardado para arrancar fresca la nueva señal
         localStorage.removeItem('fm_v2_saved_second');
         localStorage.removeItem('fm_v2_saved_timestamp');
 
-        setTimeout(() => {
+        // Si estamos sin conexión (offline), saltar a la próxima pista que REALMENTE esté en el teléfono
+        if (!this.network.isOnline) {
+            const windowTracks = this.queue.getSlidingWindow(30);
+            let nextCached = windowTracks.find(item => item.windowOffset > 0 && this.buffer.isTrackCached(item.track.download_url));
+
+            if (!nextCached && this.buffer.cachedUrls.size > 0) {
+                for (let i = 0; i < this.queue.playlist.length; i++) {
+                    const candidateIdx = (this.queue.currentIndex + 1 + i) % this.queue.playlist.length;
+                    const candTrack = this.queue.playlist[candidateIdx];
+                    if (this.buffer.isTrackCached(candTrack.download_url)) {
+                        nextCached = { playlistIndex: candidateIdx, track: candTrack };
+                        break;
+                    }
+                }
+            }
+
+            if (nextCached) {
+                console.log(`[Sincronizar Offline] Sintonizando pista disponible en buffer: ${nextCached.track.name}`);
+                this.queue.setIndex(nextCached.playlistIndex);
+            } else {
+                this.queue.advance();
+            }
+        } else {
+            // Online: avanza correlativamente
             this.queue.advance();
-            this.audio.playCurrentTrack(true);
-            this.buffer.sync();
-        }, 1500);
+        }
+
+        // REGLA DE ORO MÓVIL: Iniciar reproducción INMEDIATA y SÍNCRONA
+        // sin timeouts de 1500ms que provoquen bloqueos de autoplay en el navegador
+        this.audio.playCurrentTrack(true);
+        this.buffer.sync();
     }
 
     checkSyncCooldown() {

@@ -79,7 +79,19 @@
 
 <script>
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log("SW error", err));
+        navigator.serviceWorker.register('sw.js').then((reg) => {
+            // Fuerza la verificación inmediata de una nueva versión en el servidor
+            reg.update();
+        }).catch(err => console.log("SW error", err));
+
+        // Cuando el nuevo SW v3 toma el control, recarga automáticamente para aplicar los cambios sin fricción
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                refreshing = true;
+                window.location.reload();
+            }
+        });
     }
 
     // Instalación PWA en Android
