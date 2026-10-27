@@ -48,10 +48,14 @@ jobs:
                       if (response.ok) {
                           const data = await response.json();
                           // Filtramos solo los mp3 reales (con tamaño > 500 KB para evitar archivos corruptos o vacíos)
-                          const audios = data.filter(f => f.name.toLowerCase().endsWith('.mp3') && (!f.size || f.size > 500000)).map(f => ({
-                              name: f.name,
-                              download_url: f.download_url
-                          }));
+                          const audios = data.filter(f => f.name.toLowerCase().endsWith('.mp3') && (!f.size || f.size > 500000)).map(f => {
+                              let cleanUrl = f.download_url;
+                              try { cleanUrl = new URL(f.download_url).href; } catch(e) { cleanUrl = encodeURI(f.download_url); }
+                              return {
+                                  name: f.name,
+                                  download_url: cleanUrl
+                              };
+                          });
                           listaMaestra.push(...audios);
                           console.log(`✅ ${audios.length} canciones encontradas.`);
                       } else {
