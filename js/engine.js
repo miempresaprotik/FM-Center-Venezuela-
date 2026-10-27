@@ -1,16 +1,27 @@
 /**
  * ====================================================================
- * FM CENTER VENEZUELA LLANERAS - CORE ENGINE v2.0
+ * FM CENTER VENEZUELA LLANERAS - CORE ENGINE v3.0 (RADIO EN VIVO 24/7)
  * Metodología: DeepSeek Harness / Cordis (Módulos desacoplados y estado único)
  * Características:
+ *  - Simulación Real de Radio FM: la emisión NUNCA se detiene.
+ *  - Arranque aleatorio dinámico para cada nuevo dispositivo/oyente.
+ *  - Avance en tiempo real: al pausar o salir y volver, sintoniza donde la canción va en vivo.
  *  - Ventana Deslizante de 30 Canciones en Caché Local.
- *  - Borrado automático de la pista reproducida (ahorro de espacio).
- *  - Descarga correlativa en segundo plano (1 a la vez, sin ahogar red).
- *  - Modo Offline indestructible: continúa en orden estricto sin internet.
- *  - Reconexión inteligente: reanuda descargas correlativas al volver la red.
- *  - Compatible con WebViews de Android (AppCreator24), Chrome e iOS Safari.
+ *  - Normalización unificada de URLs (espacios y caracteres especiales compatibles).
+ *  - Modo Offline indestructible: no borra canciones guardadas si no hay internet.
+ *  - Reproducción continua síncrona sin bloqueos de autoplay en móviles.
  * ====================================================================
  */
+
+// Utilidad global de normalización de URLs
+function normalizeUrl(url) {
+    if (!url) return '';
+    try {
+        return new URL(url).href;
+    } catch (e) {
+        return encodeURI(url);
+    }
+}
 
 // --- 1. MONITOR DE RED (NetworkWatcher) ---
 class NetworkWatcher {
@@ -56,7 +67,6 @@ class QueueManager {
             const resp = await fetch('playlist.json', { cache: 'no-cache' });
             if (resp.ok) {
                 const data = await resp.json();
-                // Filtramos pistas corruptas o de 2 bytes
                 this.playlist = this._sanitize(data);
                 localStorage.setItem(this.STORAGE_PLAYLIST_KEY, JSON.stringify(this.playlist));
             } else {
@@ -66,7 +76,7 @@ class QueueManager {
             console.warn('[Queue] Usando respaldo local de playlist:', e.message);
             const backup = localStorage.getItem(this.STORAGE_PLAYLIST_KEY);
             if (backup) {
-                this.playlist = JSON.parse(backup);
+                this.playlist = this._sanitize(JSON.parse(backup));
             }
         }
 
@@ -76,7 +86,7 @@ class QueueManager {
         // 2. Recuperar progreso previo o asignar punto de partida personalizado
         const savedIndex = localStorage.getItem(this.STORAGE_INDEX_KEY);
         const lastSavedIndex = localStorage.getItem('fm_v2_saved_index');
-        const legacyIndex = localStorage.getItem('ultimo_indice'); // Compatibilidad con versión previa
+        const legacyIndex = localStorage.getItem('ultimo_indice');
 
         let indexToUse = null;
         if (savedIndex !== null && !isNaN(parseInt(savedIndex, 10))) {
@@ -90,15 +100,17 @@ class QueueManager {
         if (indexToUse !== null && indexToUse >= 0 && indexToUse < this.playlist.length) {
             // Usuario recurrente: continúa exactamente en su avance histórico
             this.currentIndex = indexToUse;
-            console.log(`[Usuario] Oyente recurrente (${localStorage.getItem('fm_v_id')}): continuando en pista ${this.currentIndex}`);
+            console.log(`[Usuario] Oyente recurrente (${localStorage.getItem('fm_v_id')}): sintonizado en pista ${this.currentIndex}`);
         } else {
-            // 🚀 PRIMERA VEZ DEL USUARIO:
-            // Se le asigna un punto de inicio dinámico en la biblioteca de 408 canciones.
-            // A partir de aquí avanza correlativamente y NUNCA regresa al inicio.
-            this.currentIndex = Math.floor(Math.random() * this.playlist.length);
+            // 🚀 ARRANQUE ALEATORIO DINÁMICO PARA CADA DISPOSITIVO NUEVO:
+            // Sintoniza como una radio real: entra en una canción aleatoria y en un segundo en progreso
+            this.currentIndex = this.playlist.length > 0 ? Math.floor(Math.random() * this.playlist.length) : 0;
+            const segundoInicialAleatorio = Math.floor(Math.random() * 45) + 15; // Entre 15s y 60s
             localStorage.setItem(this.STORAGE_INDEX_KEY, this.currentIndex);
             localStorage.setItem('fm_v2_saved_index', this.currentIndex);
-            console.log(`[Usuario] Nuevo oyente registrado (${localStorage.getItem('fm_v_id')}): sintonizado en pista inicial ${this.currentIndex}`);
+            localStorage.setItem('fm_v2_saved_second', segundoInicialAleatorio);
+            localStorage.setItem('fm_v2_saved_timestamp', Date.now());
+            console.log(`[Usuario] Nuevo oyente registrado (${localStorage.getItem('fm_v_id')}): sintonizado aleatoriamente en pista ${this.currentIndex} al segundo ${segundoInicialAleatorio}s`);
         }
 
         console.log(`[Queue] Biblioteca lista (${this.playlist.length} canciones). Pista activa: ${this.currentIndex}`);
@@ -115,6 +127,7 @@ class QueueManager {
     }
 
     _sanitize(list) {
+        if (!Array.isArray(list)) return [];
         return list.filter(item => {
             if (!item || !item.download_url || !item.name) return false;
             // Excluir nombres sospechosos conocidos de 2 bytes
@@ -122,7 +135,10 @@ class QueueManager {
                 if (item.download_url.includes('miempresaprotik')) return false;
             }
             return true;
-        });
+        }).map(item => ({
+            name: item.name,
+            download_url: normalizeUrl(item.download_url)
+        }));
     }
 
     getCurrentTrack() {
@@ -170,7 +186,7 @@ class BufferManager {
         this.queue = queueManager;
         this.network = networkWatcher;
         this.targetSize = targetSize;
-        this.CACHE_NAME = 'fm-center-v2';
+        this.CACHE_NAME = 'fm-center-v3';
         this.cachedUrls = new Set();
         this.isDownloading = false;
         this.listeners = [];
@@ -212,7 +228,7 @@ class BufferManager {
         try {
             const cache = await caches.open(this.CACHE_NAME);
             const requests = await cache.keys();
-            this.cachedUrls = new Set(requests.map(r => r.url));
+            this.cachedUrls = new Set(requests.map(r => normalizeUrl(r.url)));
             this._notify();
             console.log(`[Buffer] Inicializado con ${this.cachedUrls.size} canciones en caché.`);
         } catch (e) {
@@ -238,20 +254,27 @@ class BufferManager {
     }
 
     isTrackCached(url) {
-        return this.cachedUrls.has(url);
+        if (!url) return false;
+        return this.cachedUrls.has(normalizeUrl(url));
     }
 
     /**
      * Elimina del teléfono una canción reproducida para liberar memoria.
+     * PROTECCIÓN OFFLINE: Si estamos sin conexión, NUNCA borramos para no agotar la música guardada.
      */
     async deleteTrack(url) {
+        if (!this.network.isOnline) {
+            console.log('[Buffer] Modo offline: preservando pista en memoria.');
+            return;
+        }
         if (!url || !('caches' in window)) return;
+        const cleanUrl = normalizeUrl(url);
         try {
             const cache = await caches.open(this.CACHE_NAME);
-            await cache.delete(url, { ignoreSearch: true });
-            this.cachedUrls.delete(url);
+            await cache.delete(cleanUrl, { ignoreSearch: true });
+            this.cachedUrls.delete(cleanUrl);
             this._notify('Canción liberada');
-            console.log('[Buffer] Pista anterior eliminada del teléfono:', url.split('/').pop());
+            console.log('[Buffer] Pista anterior eliminada del teléfono:', cleanUrl.split('/').pop());
         } catch (e) {
             console.warn('[Buffer] Error borrando pista:', e);
         }
@@ -259,7 +282,7 @@ class BufferManager {
 
     /**
      * Sincroniza la ventana de 30 canciones:
-     * 1. Limpia cualquier pista en caché que esté por fuera de la ventana.
+     * 1. Limpia cualquier pista en caché que esté por fuera de la ventana (SOLO ONLINE).
      * 2. Descarga una a una las canciones que falten dentro de la ventana de 30.
      */
     async sync() {
@@ -267,9 +290,16 @@ class BufferManager {
         const slidingWindow = this.queue.getSlidingWindow(this.targetSize);
         if (slidingWindow.length === 0) return;
 
-        const allowedUrls = new Set(slidingWindow.map(item => item.track.download_url));
+        // Si NO hay internet, no borramos canciones ni intentamos descargas
+        if (!this.network.isOnline) {
+            console.log('[Buffer] Modo offline activo: descargas y limpieza preventiva en pausa.');
+            this._notify();
+            return;
+        }
 
-        // 1. Limpieza de huérfanos (canciones pasadas que ya salieron de la ventana)
+        const allowedUrls = new Set(slidingWindow.map(item => normalizeUrl(item.track.download_url)));
+
+        // Limpieza de huérfanos SOLO ONLINE
         try {
             const cache = await caches.open(this.CACHE_NAME);
             for (const url of this.cachedUrls) {
@@ -285,13 +315,6 @@ class BufferManager {
 
         this._notify();
 
-        // 2. Si no hay internet, no intentamos descargar nada
-        if (!this.network.isOnline) {
-            console.log('[Buffer] Modo offline activo: descargas en pausa.');
-            return;
-        }
-
-        // 3. Si ya hay una descarga corriendo, no duplicar procesos
         if (this.isDownloading) return;
 
         this._startDownloadQueue(slidingWindow);
@@ -304,29 +327,23 @@ class BufferManager {
             const cache = await caches.open(this.CACHE_NAME);
 
             for (const item of slidingWindow) {
-                // Si perdimos la conexión a mitad del camino, pausar silenciosamente
                 if (!this.network.isOnline) {
                     console.log('[Buffer] Conexión perdida durante la descarga. Pausando buffer...');
                     break;
                 }
 
-                const url = item.track.download_url;
+                const url = normalizeUrl(item.track.download_url);
 
-                // Si ya está descargada en el teléfono, pasar a la siguiente
                 if (this.cachedUrls.has(url)) continue;
 
-                // Notificar que se está descargando una pista
                 const trackName = item.track.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
                 this._notify(`Descargando (${item.windowOffset + 1}/${this.targetSize}): ${trackName.substring(0, 25)}...`);
 
                 try {
-                    // Descarga individual controlada
                     const resp = await fetch(url, { mode: 'cors' });
                     if (resp && resp.ok) {
-                        // Validar que no sea un archivo vacío o corrupto (mínimo 300KB)
                         const blob = await resp.blob();
                         if (blob.size > 300000) {
-                            // Guardamos en Cache Storage con cabeceras de audio limpias
                             const headers = new Headers({
                                 'Content-Type': 'audio/mpeg',
                                 'Content-Length': blob.size.toString(),
@@ -350,8 +367,6 @@ class BufferManager {
                 }
 
                 this._notify();
-
-                // Pausa de 500ms entre descargas para no ahogar la reproducción actual ni saturar datos
                 await new Promise(r => setTimeout(r, 500));
             }
         } finally {
@@ -369,6 +384,7 @@ class AudioEngine {
         this.network = networkWatcher;
         this.player = document.getElementById('player') || new Audio();
         this.isPlaying = false;
+        this._isRecovering = false;
         this.wakeLock = null;
         this.volume = parseFloat(localStorage.getItem('fm_v2_volumen') || '0.8');
         this.player.volume = this.volume;
@@ -382,6 +398,7 @@ class AudioEngine {
     _setupEvents() {
         this.player.addEventListener('playing', () => {
             this.isPlaying = true;
+            this._isRecovering = false;
             this._notifyState('playing');
         });
 
@@ -392,61 +409,86 @@ class AudioEngine {
             }
         });
 
-        // Guardar segundo exacto de la emisión para emular la radio en vivo
+        // Guardar segundo exacto de la emisión para emular la radio en vivo continua
         this.player.addEventListener('timeupdate', () => {
             this._saveState();
         });
 
-        // Al terminar una canción: Borrar la anterior, avanzar correlativamente y descargar la siguiente
-        this.player.addEventListener('ended', async () => {
+        // Al terminar una canción: Avanzar INMEDIATAMENTE y reproducir
+        // REGLA DE ORO MÓVIL: No usar 'await' antes de playCurrentTrack para no romper el permiso de autoplay
+        this.player.addEventListener('ended', () => {
             localStorage.removeItem('fm_v2_saved_second');
             localStorage.removeItem('fm_v2_saved_timestamp');
             const previousTrack = this.queue.getCurrentTrack();
-            if (previousTrack) {
-                // Liberar espacio de la que acaba de sonar
-                await this.buffer.deleteTrack(previousTrack.download_url);
-            }
 
-            // Avanzar estrictamente a la siguiente correlativa
+            // 1. Síncrono e instantáneo: cambiar pista y llamar a play
             this.queue.advance();
-            // Iniciar reproducción fresca de la nueva canción
-            this.playCurrentTrack(true);
-            // Mantener la ventana de 30 sincronizada (descargará la que falta al final de la ventana)
-            this.buffer.sync();
+            this.playCurrentTrack(true); // Canción nueva arranca limpia en 0s
+
+            // 2. Tareas en segundo plano (no bloquean el hilo de audio)
+            if (previousTrack) {
+                this.buffer.deleteTrack(previousTrack.download_url).catch(() => {});
+            }
+            this.buffer.sync().catch(() => {});
         });
 
-        // Manejo de errores sin bucles infinitos
-        this.player.addEventListener('error', async (e) => {
-            console.warn('[Audio] Error reproduciendo pista:', e);
-            this._notifyState('error');
-
-            // Si estamos sin conexión y la pista actual falló (no estaba en caché),
-            // buscamos en la ventana de 30 la siguiente que SÍ esté en el caché
-            if (!this.network.isOnline) {
-                const windowTracks = this.queue.getSlidingWindow(30);
-                const nextAvailable = windowTracks.find(item => this.buffer.isTrackCached(item.track.download_url));
-
-                if (nextAvailable) {
-                    console.log(`[Audio] Saltando a la pista en caché disponible: ${nextAvailable.track.name}`);
-                    this.queue.setIndex(nextAvailable.playlistIndex);
-                    setTimeout(() => this.playCurrentTrack(true), 1000);
-                    return;
-                }
-            }
-
-            // Si hay internet o se agotaron las opciones, avanzamos normalmente tras una breve pausa
-            setTimeout(() => {
-                this.queue.advance();
-                this.playCurrentTrack(true);
-            }, 2000);
+        // Manejo de errores resiliente
+        this.player.addEventListener('error', (e) => {
+            console.warn('[Audio] Error detectado en elemento de audio:', e);
+            this._handlePlaybackFailure();
         });
 
         // Reactivar WakeLock si el usuario vuelve a la app
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && this.isPlaying) {
-                this._requestWakeLock();
+            if (document.visibilityState === 'visible') {
+                if (this.isPlaying) this._requestWakeLock();
+            } else if (document.visibilityState === 'hidden') {
+                this._saveState();
             }
         });
+    }
+
+    _handlePlaybackFailure() {
+        if (this._isRecovering) return;
+        this._isRecovering = true;
+        this._notifyState('error');
+
+        console.warn('[Audio] Fallo de reproducción detectado. Buscando recuperación en buffer...');
+
+        // 1. Buscamos en la ventana hacia adelante (offset > 0) la siguiente pista disponible
+        const windowTracks = this.queue.getSlidingWindow(30);
+        let nextAvailable = null;
+
+        if (!this.network.isOnline) {
+            // En modo offline, buscamos estrictamente la próxima pista que SÍ esté en el caché
+            nextAvailable = windowTracks.find(item => item.windowOffset > 0 && this.buffer.isTrackCached(item.track.download_url));
+
+            // Si no está dentro de la ventana de 30 pero hay canciones en caché en la biblioteca completa
+            if (!nextAvailable && this.buffer.cachedUrls.size > 0) {
+                for (let i = 0; i < this.queue.playlist.length; i++) {
+                    const candidateIdx = (this.queue.currentIndex + 1 + i) % this.queue.playlist.length;
+                    const candTrack = this.queue.playlist[candidateIdx];
+                    if (this.buffer.isTrackCached(candTrack.download_url)) {
+                        nextAvailable = { playlistIndex: candidateIdx, track: candTrack };
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (nextAvailable) {
+            console.log(`[Audio] Saltando a la pista en caché disponible: ${nextAvailable.track.name}`);
+            this.queue.setIndex(nextAvailable.playlistIndex);
+        } else {
+            console.log('[Audio] Avanzando correlativamente a la siguiente pista...');
+            this.queue.advance();
+        }
+
+        // Continuar de inmediato sin demoras largas
+        setTimeout(() => {
+            this._isRecovering = false;
+            this.playCurrentTrack(true);
+        }, 150);
     }
 
     _saveState() {
@@ -454,9 +496,76 @@ class AudioEngine {
             localStorage.setItem('fm_v2_saved_index', this.queue.currentIndex);
             localStorage.setItem('fm_v2_saved_second', this.player.currentTime);
             localStorage.setItem('fm_v2_saved_timestamp', Date.now());
+            if (this.player.duration && this.player.duration > 10) {
+                localStorage.setItem('fm_v2_saved_duration', this.player.duration);
+            }
             const cur = this.queue.getCurrentTrack();
             if (cur) localStorage.setItem('fm_v2_saved_name', cur.name);
             localStorage.setItem('fm_v2_radio_activa', 'true');
+        }
+    }
+
+    /**
+     * SIMULACIÓN DE RADIO EN VIVO 24/7:
+     * Calcula cuántas canciones y segundos transcurrieron mientras la radio estaba
+     * pausada o fuera de la app, permitiendo retomar EXACTAMENTE en el punto en vivo.
+     */
+    calcularProgresoEnVivo() {
+        const tsSalida = parseInt(localStorage.getItem('fm_v2_saved_timestamp'), 10);
+        if (!tsSalida) return { indexOffset: 0, targetSecond: 0 };
+
+        const ahora = Date.now();
+        const tiempoFueraSegundos = Math.max(0, (ahora - tsSalida) / 1000);
+        if (tiempoFueraSegundos < 1) {
+            const segGuardado = parseFloat(localStorage.getItem('fm_v2_saved_second')) || 0;
+            return { indexOffset: 0, targetSecond: segGuardado };
+        }
+
+        const segGuardado = parseFloat(localStorage.getItem('fm_v2_saved_second')) || 0;
+        const duracionGuardada = parseFloat(localStorage.getItem('fm_v2_saved_duration')) || (this.player.duration > 30 ? this.player.duration : 210);
+
+        const tiempoRestantePista = Math.max(5, duracionGuardada - segGuardado);
+
+        if (tiempoFueraSegundos < tiempoRestantePista) {
+            // La misma canción sigue al aire en la emisora
+            const targetSecond = segGuardado + tiempoFueraSegundos;
+            console.log(`[Radio en Vivo] Misma canción al aire: avanzando al segundo ${targetSecond.toFixed(1)}s (tiempo transcurrido: ${tiempoFueraSegundos.toFixed(0)}s)`);
+            return { indexOffset: 0, targetSecond };
+        } else {
+            // La canción ya terminó en el estudio mientras el oyente no escuchaba
+            const tiempoDespues = tiempoFueraSegundos - tiempoRestantePista;
+            const DURACION_PROMEDIO = 210; // ~3.5 minutos promedio por pista llanera
+            const pistasSaltadas = 1 + Math.floor(tiempoDespues / DURACION_PROMEDIO);
+            const targetSecond = tiempoDespues % DURACION_PROMEDIO;
+
+            console.log(`[Radio en Vivo] En vivo transcurrieron ${pistasSaltadas} canciones (${tiempoFueraSegundos.toFixed(0)}s). Sintonizando pista en vivo al segundo ${targetSecond.toFixed(1)}s`);
+            return { indexOffset: pistasSaltadas, targetSecond };
+        }
+    }
+
+    _aplicarSegundoEnVivo(segundoObjetivo) {
+        if (!segundoObjetivo || segundoObjetivo <= 0) return;
+
+        const setTime = () => {
+            try {
+                if (this.player.duration && segundoObjetivo >= this.player.duration) {
+                    console.log('[Radio en Vivo] Tiempo superó la pista actual, avanzando a siguiente...');
+                    this.queue.advance();
+                    this.playCurrentTrack(true);
+                } else {
+                    this.player.currentTime = segundoObjetivo;
+                    console.log(`[Radio en Vivo] Emisión sincronizada con éxito en segundo: ${this.player.currentTime.toFixed(1)}s`);
+                }
+            } catch (e) {
+                console.warn('[Radio en Vivo] Aviso al ajustar segundo en vivo:', e.message);
+            }
+        };
+
+        if (this.player.readyState >= 1) {
+            setTime();
+        } else {
+            this.player.addEventListener('loadedmetadata', setTime, { once: true });
+            this.player.addEventListener('canplay', setTime, { once: true });
         }
     }
 
@@ -475,69 +584,77 @@ class AudioEngine {
     }
 
     async playCurrentTrack(forzarNueva = false) {
+        let segundoObjetivo = 0;
+
+        if (!forzarNueva) {
+            // Sintonización continua con la transmisión en vivo
+            const liveProg = this.calcularProgresoEnVivo();
+            if (liveProg.indexOffset > 0) {
+                const newIdx = (this.queue.currentIndex + liveProg.indexOffset) % this.queue.playlist.length;
+                this.queue.setIndex(newIdx);
+            }
+            segundoObjetivo = liveProg.targetSecond;
+        }
+
         let track = this.queue.getCurrentTrack();
         if (!track) return;
 
-        const tsSalida = parseInt(localStorage.getItem('fm_v2_saved_timestamp'), 10);
-        const ahora = Date.now();
-        const tiempoFuera = tsSalida ? (ahora - tsSalida) : 0;
-        let segundoObjetivo = 0;
+        const targetUrl = normalizeUrl(track.download_url);
+        this._requestWakeLock();
 
-        if (forzarNueva || tiempoFuera >= 180000) {
-            // Pasaron más de 3 minutos: en la emisora en vivo ya terminó la canción anterior
-            if (!forzarNueva && tsSalida) {
-                console.log(`[Radio en Vivo] Estuvo fuera ${(tiempoFuera / 1000).toFixed(0)}s (>= 3 min): sintonizando siguiente canción.`);
-                this.queue.advance();
-                track = this.queue.getCurrentTrack();
-            }
-            localStorage.removeItem('fm_v2_saved_second');
-            localStorage.removeItem('fm_v2_saved_timestamp');
-        } else if (tsSalida && tiempoFuera < 180000) {
-            // Estuvo fuera menos de 3 minutos: calcular segundo adelantado en vivo
-            const segGuardado = parseFloat(localStorage.getItem('fm_v2_saved_second')) || 0;
-            segundoObjetivo = segGuardado + (tiempoFuera / 1000);
-            console.log(`[Radio en Vivo] Emisión en vivo: adelantando al segundo ${segundoObjetivo.toFixed(1)}s (tiempo fuera: ${(tiempoFuera/1000).toFixed(0)}s)`);
+        const cambioPista = (this.player.src !== targetUrl);
+        if (cambioPista) {
+            this.player.src = targetUrl;
+            this.player.load();
         }
 
-        this._requestWakeLock();
-        this.player.src = track.download_url;
-        this.player.load();
-
         if (segundoObjetivo > 0) {
-            const aplicarSegundo = () => {
-                if (this.player.duration && segundoObjetivo >= this.player.duration) {
-                    this.player.removeEventListener('loadedmetadata', aplicarSegundo);
-                    this.queue.advance();
-                    this.playCurrentTrack(true);
-                } else {
-                    try {
-                        this.player.currentTime = segundoObjetivo;
-                    } catch (e) {}
-                    this.player.removeEventListener('loadedmetadata', aplicarSegundo);
-                }
-            };
-            this.player.addEventListener('loadedmetadata', aplicarSegundo, { once: true });
+            this._aplicarSegundoEnVivo(segundoObjetivo);
         }
 
         try {
             await this.player.play();
             this.isPlaying = true;
-            localStorage.setItem('fm_v2_radio_activa', 'true');
+            this._isRecovering = false;
+
+            // Re-confirmar el segundo en vivo por si el navegador lo reinició a 0
+            if (segundoObjetivo > 0 && Math.abs(this.player.currentTime - segundoObjetivo) > 3) {
+                try {
+                    this.player.currentTime = segundoObjetivo;
+                } catch (e) {}
+            }
+
+            this._saveState();
             this._updateMediaSession(track);
             this._notifyTrack(track);
             this._notifyState('playing');
         } catch (err) {
-            console.warn('[Audio] Error al dar play (interacción requerida o carga):', err);
-            this.isPlaying = false;
-            this._notifyState('idle');
+            console.warn('[Audio] Error al reproducir pista:', err.name, err.message);
+            if (err.name !== 'NotAllowedError') {
+                this._handlePlaybackFailure();
+            } else {
+                this.isPlaying = false;
+                this._notifyState('idle');
+            }
         }
     }
 
     pause() {
-        this._saveState();
+        // Al apagar el receptor o pausar, guardamos la marca de tiempo exacta
+        if (this.player.currentTime > 0) {
+            localStorage.setItem('fm_v2_saved_index', this.queue.currentIndex);
+            localStorage.setItem('fm_v2_saved_second', this.player.currentTime);
+            localStorage.setItem('fm_v2_saved_timestamp', Date.now());
+            if (this.player.duration && this.player.duration > 10) {
+                localStorage.setItem('fm_v2_saved_duration', this.player.duration);
+            }
+        }
         this.player.pause();
         this.isPlaying = false;
         localStorage.setItem('fm_v2_radio_activa', 'false');
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'paused';
+        }
         this._notifyState('paused');
     }
 
@@ -545,6 +662,7 @@ class AudioEngine {
         if (this.isPlaying) {
             this.pause();
         } else {
+            // Reanudar sintonizando en vivo con el tiempo transcurrido
             this.playCurrentTrack(false);
             this.buffer.sync();
         }
@@ -562,12 +680,19 @@ class AudioEngine {
                 ]
             });
 
-            navigator.mediaSession.setActionHandler('play', () => this.playCurrentTrack());
+            navigator.mediaSession.playbackState = 'playing';
+
+            navigator.mediaSession.setActionHandler('play', () => this.playCurrentTrack(false));
             navigator.mediaSession.setActionHandler('pause', () => this.pause());
             navigator.mediaSession.setActionHandler('nexttrack', () => {
                 this.queue.advance();
-                this.playCurrentTrack();
+                this.playCurrentTrack(true);
                 this.buffer.sync();
+            });
+            navigator.mediaSession.setActionHandler('previoustrack', () => {
+                const prevIdx = (this.queue.currentIndex - 1 + this.queue.playlist.length) % this.queue.playlist.length;
+                this.queue.setIndex(prevIdx);
+                this.playCurrentTrack(true);
             });
         }
     }
@@ -586,20 +711,26 @@ class AudioEngine {
     // Locución y anuncios con ducking suave de volumen
     hablar(mensaje, animado = false) {
         if (!('speechSynthesis' in window)) return;
-        window.speechSynthesis.cancel();
+        try {
+            window.speechSynthesis.cancel();
 
-        setTimeout(() => {
-            const volOriginal = this.volume;
-            this.player.volume = volOriginal * 0.15; // Reducir música al 15%
+            setTimeout(() => {
+                const volOriginal = this.volume;
+                this.player.volume = volOriginal * 0.15; // Reducir música al 15%
 
-            const speech = new SpeechSynthesisUtterance(mensaje);
-            speech.lang = 'es-VE';
-            speech.rate = animado ? 0.95 : 0.9;
-            speech.onend = () => { this.player.volume = volOriginal; };
-            speech.onerror = () => { this.player.volume = volOriginal; };
+                const speech = new SpeechSynthesisUtterance(mensaje);
+                speech.lang = 'es-VE';
+                speech.rate = animado ? 0.95 : 0.9;
+                speech.onend = () => { this.player.volume = volOriginal; };
+                speech.onerror = () => { this.player.volume = volOriginal; };
 
-            window.speechSynthesis.speak(speech);
-        }, 150);
+                try {
+                    window.speechSynthesis.speak(speech);
+                } catch (err) {
+                    this.player.volume = volOriginal;
+                }
+            }, 150);
+        } catch (e) {}
     }
 }
 
@@ -625,25 +756,26 @@ class FMCenterApp {
         await this.queue.load();
         await this.buffer.init();
 
-        // Mostrar versión camuflando el número de pistas en el build (ej: V.FM 6408)
+        // Al abrir la app, sincronizar en vivo el progreso transcurrido
+        const liveProg = this.audio.calcularProgresoEnVivo();
+        if (liveProg.indexOffset > 0) {
+            const newIdx = (this.queue.currentIndex + liveProg.indexOffset) % this.queue.playlist.length;
+            this.queue.setIndex(newIdx);
+        }
+
+        // Mostrar versión
         const verTag = document.getElementById('ver-tag');
         if (verTag) verTag.innerText = `V.FM 6${this.queue.playlist.length}`;
 
         // Iniciar reloj y locución
         this._startClock();
 
-        // Restaurar estado visual previo si la radio estaba en emisión
+        // Mostrar la pista que está al aire en este momento
         const statusEl = document.getElementById('status');
-        const savedName = localStorage.getItem('fm_v2_saved_name');
         const currentTrack = this.queue.getCurrentTrack();
-        if (statusEl) {
-            if (savedName) {
-                const cleanName = savedName.replace(/\.mp3$/i, '').replace(/_/g, ' ');
-                statusEl.innerText = `Señal sintonizada:\n${cleanName}`;
-            } else if (currentTrack) {
-                const cleanName = currentTrack.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
-                statusEl.innerText = `Lista para sonar:\n${cleanName}`;
-            }
+        if (statusEl && currentTrack) {
+            const cleanName = currentTrack.name.replace(/\.mp3$/i, '').replace(/_/g, ' ');
+            statusEl.innerText = `Señal sintonizada al aire:\n${cleanName}`;
         }
     }
 
@@ -712,16 +844,16 @@ class FMCenterApp {
             if (btnPlay) {
                 if (state === 'playing') {
                     btnPlay.disabled = false;
-                    btnPlay.innerText = "⏸ PAUSAR";
+                    btnPlay.innerText = "⏸ PAUSAR SEÑAL";
                     btnPlay.style.background = "#008f39";
                 } else if (state === 'paused') {
                     btnPlay.disabled = false;
-                    btnPlay.innerText = "▶ CONTINUAR";
+                    btnPlay.innerText = "▶ SINTONIZAR EN VIVO";
                     btnPlay.style.background = "#003da5";
                 } else if (state === 'error') {
-                    btnPlay.innerText = "🔄 REINTENTANDO...";
+                    btnPlay.innerText = "🔄 SINTONIZANDO...";
                 } else {
-                    btnPlay.innerText = "▶ REPRODUCIR";
+                    btnPlay.innerText = "▶ SINTONIZAR EN VIVO";
                     btnPlay.style.background = "#003da5";
                 }
             }
@@ -765,7 +897,7 @@ class FMCenterApp {
         this.checkSyncCooldown();
 
         this.audio.pause();
-        if (statusEl) statusEl.innerText = "Sintonizando nueva señal...";
+        if (statusEl) statusEl.innerText = "Sintonizando nueva señal en vivo...";
 
         // Limpiar segundo guardado para comenzar limpia la nueva pista
         localStorage.removeItem('fm_v2_saved_second');
@@ -775,7 +907,7 @@ class FMCenterApp {
             this.queue.advance();
             this.audio.playCurrentTrack(true);
             this.buffer.sync();
-        }, 3000);
+        }, 1500);
     }
 
     checkSyncCooldown() {

@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FM Center - Venezuela Llaneras</title>
+    <!-- Configuración PWA para Android e iOS -->
+    <meta name="theme-color" content="#003da5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FM Center">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="Imagen/Logo%20FM%20Center.png">
+    <link rel="icon" type="image/png" href="Imagen/Logo%20FM%20Center.png">
     <style>
         /* TU DISEÑO ORIGINAL SIN CAMBIOS */
         body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -45,9 +54,10 @@
     <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo">
     <div class="titulos"><h1>FM CENTER</h1><h2>VENEZUELA LLANERAS</h2></div>
     <div id="status">Sintonizando señal llanera...</div>
-    <button id="btnPlay" class="boton">▶ REPRODUCIR</button>
+    <button id="btnPlay" class="boton">▶ SINTONIZAR EN VIVO</button>
     
     <button id="btnSync" class="btn-sync">🔄 SINCRONIZAR SEÑAL</button>
+    <button id="btnInstall" class="btn-sync" style="display: none; background: #008f39; border-color: #76ff03; font-weight: bold;">📲 INSTALAR APLICACIÓN</button>
 
     <div class="reserva-cont">
         <span class="reserva-label">MODO SIN CONEXIÓN (BUFFER 30)</span>
@@ -71,6 +81,32 @@
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js').catch(err => console.log("SW error", err));
     }
+
+    // Instalación PWA en Android
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const btnInstall = document.getElementById('btnInstall');
+        if (btnInstall) {
+            btnInstall.style.display = 'inline-block';
+            btnInstall.onclick = async () => {
+                btnInstall.style.display = 'none';
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log('Resultado de instalación:', outcome);
+                    deferredPrompt = null;
+                }
+            };
+        }
+    });
+
+    window.addEventListener('appinstalled', () => {
+        console.log('PWA instalada en el dispositivo');
+        const btnInstall = document.getElementById('btnInstall');
+        if (btnInstall) btnInstall.style.display = 'none';
+    });
 </script>
 <script src="js/engine.js"></script>
 </body>

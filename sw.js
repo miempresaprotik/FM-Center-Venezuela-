@@ -1,11 +1,13 @@
-const CACHE_NAME = 'fm-center-v2';
-const APP_CACHE = 'fm-appshell-v2';
+const CACHE_NAME = 'fm-center-v3';
+const APP_CACHE = 'fm-appshell-v3';
 
 const APP_SHELL_FILES = [
     './',
     './index.html',
+    './manifest.json',
     './playlist.json',
-    './js/engine.js'
+    './js/engine.js',
+    './Imagen/Logo%20FM%20Center.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -56,7 +58,17 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             caches.open(CACHE_NAME).then(async (cache) => {
                 // Buscamos si la pista exacta ya está en el buffer
-                const cachedResponse = await cache.match(event.request, { ignoreSearch: true });
+                // Probamos por event.request, URL normalizada y decodificada
+                let cachedResponse = await cache.match(event.request, { ignoreSearch: true });
+                if (!cachedResponse) {
+                    cachedResponse = await cache.match(event.request.url, { ignoreSearch: true });
+                }
+                if (!cachedResponse) {
+                    try {
+                        const decoded = decodeURI(event.request.url);
+                        cachedResponse = await cache.match(decoded, { ignoreSearch: true });
+                    } catch (e) {}
+                }
 
                 if (cachedResponse) {
                     // Si el celular solicita rango (pedacitos de audio para reproducir)
@@ -72,8 +84,7 @@ self.addEventListener('fetch', (event) => {
                     return networkResponse;
                 } catch (networkError) {
                     // ⚠️ Sin conexión y la pista no está en caché:
-                    // Respondemos 503 limpio para que el AudioEngine salte a la siguiente
-                    // pista correlativa que SÍ esté en el buffer, ¡sin inventar pistas fantasmas!
+                    // Respondemos 503 limpio para que el AudioEngine salte a la siguiente pista correlativa disponible
                     return new Response('Pista no disponible en buffer offline', {
                         status: 503,
                         statusText: 'Service Unavailable',
@@ -85,22 +96,36 @@ self.addEventListener('fetch', (event) => {
     }
 });
 
-// Soporte robusto de HTTP 206 Partial Content para móviles (Android / iOS / WebViews)
+// Soporte robusto y eficiente de HTTP 206 Partial Content para móviles (Android / iOS / WebViews)
+// Usamos Blob.slice para evitar consumo excesivo de memoria RAM
 async function manejarPeticionRango(request, cachedResponse) {
     const rangeHeader = request.headers.get('range');
     if (!rangeHeader) return cachedResponse;
 
     try {
-        const buffer = await cachedResponse.arrayBuffer();
-        const total = buffer.byteLength;
-        const bytesMatch = /bytes=(\d+)-(\d+)?/.exec(rangeHeader);
+        const blob = await cachedResponse.blob();
+        const total = blob.size;
+        const bytesMatch = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
 
-        if (!bytesMatch) return cachedResponse;
+        if (!bytesMatch) {
+            return new Response(blob, {
+                status: 200,
+                statusText: 'OK',
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Length': total.toString(),
+                    'Accept-Ranges': 'bytes'
+                }
+            });
+        }
 
-        const start = parseInt(bytesMatch[1], 10);
-        const end = bytesMatch[2] ? parseInt(bytesMatch[2], 10) : total - 1;
+        let start = bytesMatch[1] ? parseInt(bytesMatch[1], 10) : 0;
+        let end = bytesMatch[2] ? parseInt(bytesMatch[2], 10) : total - 1;
 
-        if (start >= total || end >= total) {
+        if (isNaN(start)) start = 0;
+        if (isNaN(end) || end >= total) end = total - 1;
+
+        if (start >= total || start > end) {
             return new Response(null, {
                 status: 416,
                 statusText: 'Range Not Satisfiable',
@@ -108,7 +133,7 @@ async function manejarPeticionRango(request, cachedResponse) {
             });
         }
 
-        const chunk = buffer.slice(start, end + 1);
+        const chunk = blob.slice(start, end + 1, 'audio/mpeg');
 
         return new Response(chunk, {
             status: 206,
@@ -116,12 +141,13 @@ async function manejarPeticionRango(request, cachedResponse) {
             headers: {
                 'Content-Range': `bytes ${start}-${end}/${total}`,
                 'Accept-Ranges': 'bytes',
-                'Content-Length': chunk.byteLength.toString(),
+                'Content-Length': chunk.size.toString(),
                 'Content-Type': 'audio/mpeg',
                 'Cache-Control': 'public, max-age=31536000'
             }
         });
     } catch (e) {
-        return cachedResponse;
+        console.warn('Error en peticion de rango:', e);
+        return new Response('Error procesando rango de audio', { status: 500 });
     }
 }
