@@ -1,125 +1,492 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>FM Center - Venezuela Llaneras</title>
-    <!-- Configuración PWA para Android e iOS -->
+    <!-- Configuración PWA universal para Android, iOS, Fire TV y navegadores -->
     <meta name="theme-color" content="#003da5">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FM Center">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="Imagen/Logo%20FM%20Center.png">
-    <link rel="icon" type="image/png" href="Imagen/Logo%20FM%20Center.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="Imagen/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="Imagen/icon-192.png">
     <style>
-        /* TU DISEÑO ORIGINAL SIN CAMBIOS */
-        body { background: #000; color: #fecb00; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-        .box { 
-            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/IMG_20250113_001927.jpg');
-            background-size: cover; background-position: center; background-repeat: no-repeat; padding: 30px; border-radius: 25px; border: 2px solid #fecb00; width: 85%; max-width: 400px; box-shadow: 0 10px 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; box-sizing: border-box; position: relative;
+        /* TU DISEÑO ORIGINAL + COMPATIBILIDAD TV / FIRE TV / LANDSCAPE */
+        body {
+            background: #000;
+            color: #fecb00;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 12px;
+            box-sizing: border-box;
+            text-align: center;
         }
-        .logo-fm { position: absolute; top: 15px; right: 15px; width: 70px; height: auto; filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5)); }
-        .titulos { margin-top: 30px; } 
-        .titulos h1 { color:white; margin:0; font-size: 26px; letter-spacing: 1px; }
-        .titulos h2 { margin:-3px 0 20px 0; font-size: 18px; color: #fecb00; font-weight: normal; }
-        #status { color: #fff; font-size: 14px; min-height: 55px; line-height: 1.4; white-space: pre-line; margin-bottom: 15px; width: 100%; font-weight: bold; }
-        .boton { background: #003da5; color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: auto; }
-        .boton:disabled { background: #444444 !important; color: #888888 !important; cursor: not-allowed !important; }
-        
-        .btn-sync { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3); padding: 5px 12px; border-radius: 20px; font-size: 10px; margin-top: 15px; cursor: pointer; }
-        .btn-sync:disabled { opacity: 0.4; cursor: wait; }
 
-        .vol-container { margin-top: 25px; background: rgba(34, 34, 34, 0.85); padding: 12px; border-radius: 15px; width: 100%; box-sizing: border-box; }
-        input[type=range] { width: 100%; cursor: pointer; accent-color: #fecb00; }
-        #reloj-mini { font-size: 12px; color: #fecb00; margin-top: 10px; font-weight: bold; opacity: 0.8; }
-        
-        #ver-tag { font-size: 9px; color: #444; margin-top: 4px; letter-spacing: 1px; font-weight: bold; }
+        .box {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('./Imagen/IMG_20250113_001927.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding: 30px;
+            border-radius: 25px;
+            border: 2px solid #fecb00;
+            width: 92%;
+            max-width: 420px;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+            position: relative;
+        }
 
-        .reserva-cont { margin-top: 12px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-        .reserva-label { font-size: 9px; color: #aaa; letter-spacing: 1px; text-transform: uppercase; }
-        .switch { position: relative; display: inline-block; width: 38px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px; border: 1px solid #fecb00; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #003da5; border-color: #fff; }
-        input:checked + .slider:before { transform: translateX(18px); }
-        #status-tanque { font-size: 9px; color: #fecb00; font-weight: bold; display: none; text-shadow: 1px 1px 1px #000; text-transform: uppercase;}
+        .logo-fm {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 70px;
+            height: auto;
+            filter: drop-shadow(0 0 5px rgba(254, 203, 0, 0.5));
+        }
+
+        .titulos {
+            margin-top: 30px;
+        }
+
+        .titulos h1 {
+            color: white;
+            margin: 0;
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
+
+        .titulos h2 {
+            margin: -3px 0 20px 0;
+            font-size: 18px;
+            color: #fecb00;
+            font-weight: normal;
+        }
+
+        #status {
+            color: #fff;
+            font-size: 14px;
+            min-height: 55px;
+            line-height: 1.4;
+            white-space: pre-line;
+            margin-bottom: 15px;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        .boton {
+            background: #003da5;
+            color: white;
+            border: none;
+            padding: 18px;
+            width: 100%;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: auto;
+        }
+
+        .boton:disabled {
+            background: #444444 !important;
+            color: #888888 !important;
+            cursor: not-allowed !important;
+        }
+
+        .btn-sync {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            margin-top: 12px;
+            cursor: pointer;
+        }
+
+        .btn-sync:disabled {
+            opacity: 0.4;
+            cursor: wait;
+        }
+
+        .btn-install {
+            background: #008f39;
+            border: 1px solid #76ff03;
+            color: #fff;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 11px;
+            margin-top: 10px;
+            cursor: pointer;
+            display: none;
+        }
+
+        /* Foco visible para controles remotos de TV / Fire TV */
+        button:focus-visible,
+        input:focus-visible {
+            outline: 3px solid #fecb00;
+            outline-offset: 3px;
+        }
+
+        .vol-container {
+            margin-top: 22px;
+            background: rgba(34, 34, 34, 0.85);
+            padding: 12px;
+            border-radius: 15px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #fecb00;
+        }
+
+        #reloj-mini {
+            font-size: 12px;
+            color: #fecb00;
+            margin-top: 10px;
+            font-weight: bold;
+            opacity: 0.8;
+        }
+
+        #ver-tag {
+            font-size: 9px;
+            color: #666;
+            margin-top: 4px;
+            letter-spacing: 1px;
+            font-weight: bold;
+        }
+
+        .reserva-cont {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .reserva-label {
+            font-size: 9px;
+            color: #aaa;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 18px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 20px;
+            border: 1px solid #fecb00;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #003da5;
+            border-color: #fff;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(18px);
+        }
+
+        #status-tanque {
+            font-size: 9px;
+            color: #fecb00;
+            font-weight: bold;
+            display: none;
+            text-shadow: 1px 1px 1px #000;
+            text-transform: uppercase;
+        }
+
+        /* Modal guía de instalación para iOS, Fire TV, Smart TV y navegadores */
+        .install-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        .install-modal.open {
+            display: flex;
+        }
+
+        .install-card {
+            background: #111;
+            border: 2px solid #fecb00;
+            border-radius: 18px;
+            max-width: 380px;
+            width: 100%;
+            padding: 20px;
+            color: #fff;
+            text-align: left;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+        }
+
+        .install-card h3 {
+            margin: 0 0 10px 0;
+            color: #fecb00;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .install-card p,
+        .install-card li {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #eee;
+        }
+
+        .install-card ul {
+            padding-left: 18px;
+            margin: 8px 0 14px 0;
+        }
+
+        .install-close {
+            width: 100%;
+            background: #003da5;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+        }
     </style>
 </head>
+
 <body>
 
-<div class="box">
-    <img src="https://raw.githubusercontent.com/miempresaprotik/FM-Center-Venezuela-/main/Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo">
-    <div class="titulos"><h1>FM CENTER</h1><h2>VENEZUELA LLANERAS</h2></div>
-    <div id="status">Sintonizando señal llanera...</div>
-    <button id="btnPlay" class="boton">▶ SINTONIZAR EN VIVO</button>
-    
-    <button id="btnSync" class="btn-sync">🔄 SINCRONIZAR SEÑAL</button>
-    <button id="btnInstall" class="btn-sync" style="display: none; background: #008f39; border-color: #76ff03; font-weight: bold;">📲 INSTALAR APLICACIÓN</button>
+    <div class="box">
+        <img src="./Imagen/Logo%20FM%20Center.png" class="logo-fm" alt="Logo FM Center">
+        <div class="titulos">
+            <h1>FM CENTER</h1>
+            <h2>VENEZUELA LLANERAS</h2>
+        </div>
+        <div id="status">Sintonizando señal llanera...</div>
+        <button id="btnPlay" class="boton">▶ SINTONIZAR EN VIVO</button>
 
-    <div class="reserva-cont">
-        <span class="reserva-label">MODO SIN CONEXIÓN (BUFFER 30)</span>
-        <label class="switch">
-            <input type="checkbox" id="toggleOffline" checked>
-            <span class="slider"></span>
-        </label>
-        <div id="status-tanque">⛽ BUFFER EN MEMORIA: <span id="cant-reserva">0</span>/30</div>
+        <button id="btnSync" class="btn-sync">🔄 SINCRONIZAR SEÑAL</button>
+        <button id="btnInstall" class="btn-install">📲 INSTALAR APLICACIÓN (PWA)</button>
+
+        <div class="reserva-cont">
+            <span class="reserva-label">MODO SIN CONEXIÓN (BUFFER 30)</span>
+            <label class="switch" aria-label="Activar o desactivar modo sin conexión">
+                <input type="checkbox" id="toggleOffline" checked>
+                <span class="slider"></span>
+            </label>
+            <div id="status-tanque">⛽ BUFFER EN MEMORIA: <span id="cant-reserva">0</span>/30</div>
+        </div>
+
+        <div class="vol-container">
+            <label for="volumen" style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE
+                VOLUMEN</label><br>
+            <input type="range" id="volumen" min="0" max="1" step="0.05" value="0.8">
+        </div>
+        <div id="reloj-mini">Cargando sistema...</div>
+        <div id="ver-tag">V.FM 000</div>
+        <audio id="player" preload="auto"></audio>
     </div>
 
-    <div class="vol-container">
-        <label style="color:#fecb00; font-size: 11px; font-weight: bold;">CONTROL DE VOLUMEN</label><br>
-        <input type="range" id="volumen" min="0" max="1" step="0.05" value="0.8">
+    <div id="installModal" class="install-modal" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+        <div class="install-card">
+            <h3 id="installTitle">📲 Instalar FM Center</h3>
+            <div id="installSteps"></div>
+            <button id="btnCloseInstall" class="install-close">ENTENDIDO</button>
+        </div>
     </div>
-    <div id="reloj-mini">Cargando sistema...</div>
-    <div id="ver-tag">V.FM 000</div>
-    <audio id="player" crossorigin="anonymous"></audio>
-</div>
 
-<script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').then((reg) => {
-            // Fuerza la verificación inmediata de una nueva versión en el servidor
-            reg.update();
-        }).catch(err => console.log("SW error", err));
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then((reg) => {
+                reg.update();
+            }).catch(err => console.log("SW error", err));
 
-        // Cuando el nuevo SW v3 toma el control, recarga automáticamente para aplicar los cambios sin fricción
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!refreshing) {
-                refreshing = true;
-                window.location.reload();
-            }
-        });
-    }
+            // Solo recargamos automáticamente si NO hay música reproduciéndose para no cortar la emisora
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing && !(window.FMCenter && window.FMCenter.audio && window.FMCenter.audio.isPlaying)) {
+                    refreshing = true;
+                    window.location.reload();
+                }
+            });
+        }
 
-    // Instalación PWA en Android
-    let deferredPrompt = null;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        const btnInstall = document.getElementById('btnInstall');
-        if (btnInstall) {
-            btnInstall.style.display = 'inline-block';
-            btnInstall.onclick = async () => {
+        // --- INSTALACIÓN PWA UNIVERSAL (Android, iOS, Fire TV, Smart TV y Desktop) ---
+        (function setupPWAInstall() {
+            const btnInstall = document.getElementById('btnInstall');
+            const modal = document.getElementById('installModal');
+            const stepsEl = document.getElementById('installSteps');
+            const btnClose = document.getElementById('btnCloseInstall');
+            if (!btnInstall) return;
+
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                || window.matchMedia('(display-mode: fullscreen)').matches
+                || window.navigator.standalone === true;
+
+            if (isStandalone) {
                 btnInstall.style.display = 'none';
+                return;
+            }
+
+            const ua = navigator.userAgent || '';
+            const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isFireTV = /Silk|AFT|FireTV|KFT|KF[A-Z]{2,}/.test(ua);
+            const isTV = isFireTV || /Android TV|SmartTV|SMART-TV|BRAVIA|Tizen|Web0S|WebOS|NetCast|TV/i.test(ua);
+            const isAndroid = /Android/i.test(ua);
+
+            let deferredPrompt = null;
+
+            function buildInstructionsHtml() {
+                if (isIOS) {
+                    return `
+                    <p>Para instalar <b>FM Center</b> en tu iPhone o iPad:</p>
+                    <ul>
+                        <li>Toca el botón <b>Compartir</b> (cuadro con flecha arriba ⬆️) en Safari.</li>
+                        <li>Desliza y selecciona <b>"Agregar a pantalla de inicio"</b> (➕).</li>
+                        <li>Pulsa <b>"Agregar"</b> arriba a la derecha.</li>
+                    </ul>`;
+                }
+                if (isFireTV) {
+                    return `
+                    <p>Para fijar <b>FM Center</b> en tu Amazon Fire TV / Silk:</p>
+                    <ul>
+                        <li>Pulsa el botón <b>Menú (☰)</b> de tu control remoto Fire TV.</li>
+                        <li>Selecciona <b>"Agregar marcador"</b> o <b>"Anclar a la pantalla de inicio"</b>.</li>
+                        <li>Si usas un navegador compatible con PWA, elige <b>"Instalar aplicación"</b>.</li>
+                    </ul>`;
+                }
+                if (isTV) {
+                    return `
+                    <p>Para instalar <b>FM Center</b> en tu Smart TV / Android TV:</p>
+                    <ul>
+                        <li>Abre el menú del navegador (<b>⋮</b> o <b>☰</b>) con el control remoto.</li>
+                        <li>Selecciona <b>"Instalar aplicación"</b> o <b>"Agregar a pantalla de inicio"</b>.</li>
+                    </ul>`;
+                }
+                if (isAndroid) {
+                    return `
+                    <p>Para instalar <b>FM Center</b> en tu Android:</p>
+                    <ul>
+                        <li>Toca el menú del navegador (<b>⋮</b> arriba a la derecha).</li>
+                        <li>Elige <b>"Instalar aplicación"</b> o <b>"Agregar a la pantalla principal"</b>.</li>
+                    </ul>`;
+                }
+                return `
+                <p>Para instalar <b>FM Center</b> en este navegador:</p>
+                <ul>
+                    <li>Busca el ícono de instalar (<b>⊕</b> o pantalla con flecha) en la barra de direcciones, o abre el menú del navegador (<b>⋮</b> / <b>⋯</b>).</li>
+                    <li>Selecciona <b>"Instalar FM Center..."</b> o <b>"Aplicaciones → Instalar este sitio"</b>.</li>
+                </ul>`;
+            }
+
+            function updateButtonLabel() {
+                if (deferredPrompt) {
+                    btnInstall.textContent = '📲 INSTALAR APLICACIÓN';
+                } else if (isIOS) {
+                    btnInstall.textContent = '📲 INSTALAR EN IPHONE / IPAD';
+                } else if (isTV) {
+                    btnInstall.textContent = '📺 INSTALAR EN TV / FIRE TV';
+                } else {
+                    btnInstall.textContent = '📲 INSTALAR COMO APP (PWA)';
+                }
+                btnInstall.style.display = 'inline-block';
+            }
+
+            updateButtonLabel();
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                updateButtonLabel();
+            });
+
+            btnInstall.addEventListener('click', async () => {
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
-                    const { outcome } = await deferredPrompt.userChoice;
-                    console.log('Resultado de instalación:', outcome);
+                    try {
+                        const { outcome } = await deferredPrompt.userChoice;
+                        console.log('Resultado de instalación PWA:', outcome);
+                        if (outcome === 'accepted') {
+                            btnInstall.style.display = 'none';
+                        }
+                    } catch (err) { }
                     deferredPrompt = null;
+                    return;
                 }
-            };
-        }
-    });
+                if (modal && stepsEl) {
+                    stepsEl.innerHTML = buildInstructionsHtml();
+                    modal.classList.add('open');
+                    if (btnClose) btnClose.focus();
+                }
+            });
 
-    window.addEventListener('appinstalled', () => {
-        console.log('PWA instalada en el dispositivo');
-        const btnInstall = document.getElementById('btnInstall');
-        if (btnInstall) btnInstall.style.display = 'none';
-    });
-</script>
-<script src="js/engine.js"></script>
+            if (btnClose && modal) {
+                btnClose.addEventListener('click', () => modal.classList.remove('open'));
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) modal.classList.remove('open');
+                });
+            }
+
+            window.addEventListener('appinstalled', () => {
+                console.log('PWA instalada en el dispositivo');
+                deferredPrompt = null;
+                btnInstall.style.display = 'none';
+                if (modal) modal.classList.remove('open');
+            });
+        })();
+    </script>
+    <script src="js/engine.js"></script>
 </body>
+
 </html>

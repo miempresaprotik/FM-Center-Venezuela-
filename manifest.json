@@ -2,26 +2,40 @@
   "name": "FM Center - Venezuela Llaneras",
   "short_name": "FM Center",
   "description": "Emisora oficial de Música Llanera Venezolana de FM Center",
-  "id": "fm-center-llaneras",
+  "id": "./",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
   "background_color": "#000000",
   "theme_color": "#003da5",
-  "categories": ["music", "entertainment"],
+  "lang": "es-VE",
+  "categories": [
+    "music",
+    "entertainment"
+  ],
   "icons": [
     {
-      "src": "Imagen/Logo FM Center.png",
+      "src": "Imagen/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "Imagen/Logo FM Center.png",
+      "src": "Imagen/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "Imagen/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

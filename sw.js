@@ -1,5 +1,5 @@
 const CACHE_NAME = 'fm-center-v3';
-const APP_CACHE = 'fm-appshell-v3';
+const APP_CACHE = 'fm-appshell-v4';
 
 const APP_SHELL_FILES = [
     './',
@@ -7,7 +7,12 @@ const APP_SHELL_FILES = [
     './manifest.json',
     './playlist.json',
     './js/engine.js',
-    './Imagen/Logo%20FM%20Center.png'
+    './Imagen/IMG_20250113_001927.jpg',
+    './Imagen/Logo%20FM%20Center.png',
+    './Imagen/icon-192.png',
+    './Imagen/icon-512.png',
+    './Imagen/icon-maskable-512.png',
+    './Imagen/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -35,10 +40,12 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') return;
+
     const url = new URL(event.request.url);
 
-    // 1. Archivos propios de la app (HTML, JS, JSON): Network-First con fallback a caché
-    if (url.origin === self.location.origin && !url.pathname.includes('.mp3')) {
+    // 1. Archivos propios de la app (HTML, JS, JSON, imágenes locales): Network-First con fallback a caché
+    if (url.origin === self.location.origin && !url.pathname.toLowerCase().endsWith('.mp3')) {
         event.respondWith(
             fetch(event.request)
                 .then((networkResponse) => {
@@ -48,17 +55,23 @@ self.addEventListener('fetch', (event) => {
                     }
                     return networkResponse;
                 })
-                .catch(() => caches.match(event.request))
+                .catch(async () => {
+                    const cached = await caches.match(event.request, { ignoreSearch: true });
+                    if (cached) return cached;
+                    if (event.request.mode === 'navigate') {
+                        return caches.match('./index.html');
+                    }
+                    return new Response('Recurso no disponible sin conexión', { status: 503 });
+                })
         );
         return;
     }
 
     // 2. Archivos de audio MP3 (Desde GitHub o cualquier CDN)
-    if (url.pathname.endsWith('.mp3') || event.request.url.includes('.mp3')) {
+    if (url.pathname.toLowerCase().endsWith('.mp3') || event.request.url.toLowerCase().includes('.mp3')) {
         event.respondWith(
             caches.open(CACHE_NAME).then(async (cache) => {
                 // Buscamos si la pista exacta ya está en el buffer
-                // Probamos por event.request, URL normalizada y decodificada
                 let cachedResponse = await cache.match(event.request, { ignoreSearch: true });
                 if (!cachedResponse) {
                     cachedResponse = await cache.match(event.request.url, { ignoreSearch: true });
@@ -71,11 +84,10 @@ self.addEventListener('fetch', (event) => {
                 }
 
                 if (cachedResponse) {
-                    // Si el celular solicita rango (pedacitos de audio para reproducir)
                     if (event.request.headers.has('range')) {
                         return manejarPeticionRango(event.request, cachedResponse);
                     }
-                    return cachedResponse;
+                    return asegurarRespuestaAudio(cachedResponse);
                 }
 
                 // Si NO está en caché, intentamos obtenerla de la red
@@ -83,12 +95,13 @@ self.addEventListener('fetch', (event) => {
                     const networkResponse = await fetch(event.request);
                     return networkResponse;
                 } catch (networkError) {
-                    // ⚠️ Sin conexión y la pista no está en caché:
-                    // Respondemos 503 limpio para que el AudioEngine salte a la siguiente pista correlativa disponible
                     return new Response('Pista no disponible en buffer offline', {
                         status: 503,
                         statusText: 'Service Unavailable',
-                        headers: { 'Content-Type': 'text/plain' }
+                        headers: {
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': '*'
+                        }
                     });
                 }
             })
@@ -96,11 +109,29 @@ self.addEventListener('fetch', (event) => {
     }
 });
 
-// Soporte robusto y eficiente de HTTP 206 Partial Content para móviles (Android / iOS / WebViews)
-// Usamos Blob.slice para evitar consumo excesivo de memoria RAM
+async function asegurarRespuestaAudio(cachedResponse) {
+    try {
+        const blob = await cachedResponse.blob();
+        return new Response(blob, {
+            status: 200,
+            statusText: 'OK',
+            headers: {
+                'Content-Type': 'audio/mpeg',
+                'Content-Length': blob.size.toString(),
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges'
+            }
+        });
+    } catch (e) {
+        return cachedResponse;
+    }
+}
+
+// Soporte robusto y eficiente de HTTP 206 Partial Content para móviles, iOS y TVs
 async function manejarPeticionRango(request, cachedResponse) {
     const rangeHeader = request.headers.get('range');
-    if (!rangeHeader) return cachedResponse;
+    if (!rangeHeader) return asegurarRespuestaAudio(cachedResponse);
 
     try {
         const blob = await cachedResponse.blob();
@@ -114,7 +145,9 @@ async function manejarPeticionRango(request, cachedResponse) {
                 headers: {
                     'Content-Type': 'audio/mpeg',
                     'Content-Length': total.toString(),
-                    'Accept-Ranges': 'bytes'
+                    'Accept-Ranges': 'bytes',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges'
                 }
             });
         }
@@ -122,14 +155,23 @@ async function manejarPeticionRango(request, cachedResponse) {
         let start = bytesMatch[1] ? parseInt(bytesMatch[1], 10) : 0;
         let end = bytesMatch[2] ? parseInt(bytesMatch[2], 10) : total - 1;
 
-        if (isNaN(start)) start = 0;
+        if (!bytesMatch[1] && bytesMatch[2]) {
+            const suffixLength = parseInt(bytesMatch[2], 10);
+            start = Math.max(0, total - suffixLength);
+            end = total - 1;
+        }
+
+        if (isNaN(start) || start < 0) start = 0;
         if (isNaN(end) || end >= total) end = total - 1;
 
         if (start >= total || start > end) {
             return new Response(null, {
                 status: 416,
                 statusText: 'Range Not Satisfiable',
-                headers: { 'Content-Range': `bytes */${total}` }
+                headers: {
+                    'Content-Range': `bytes */${total}`,
+                    'Access-Control-Allow-Origin': '*'
+                }
             });
         }
 
@@ -143,11 +185,16 @@ async function manejarPeticionRango(request, cachedResponse) {
                 'Accept-Ranges': 'bytes',
                 'Content-Length': chunk.size.toString(),
                 'Content-Type': 'audio/mpeg',
-                'Cache-Control': 'public, max-age=31536000'
+                'Cache-Control': 'public, max-age=31536000',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges'
             }
         });
     } catch (e) {
         console.warn('Error en peticion de rango:', e);
-        return new Response('Error procesando rango de audio', { status: 500 });
+        return new Response('Error procesando rango de audio', {
+            status: 500,
+            headers: { 'Access-Control-Allow-Origin': '*' }
+        });
     }
 }
